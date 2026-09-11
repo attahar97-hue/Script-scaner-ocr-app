@@ -1,0 +1,6 @@
+{
+  "name": "ScriptScan OCR",
+  "description": "Handwriting to text recognizer, PDF extractor, and AI summarizer that converts cursive and messy notes into editable digital text.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
