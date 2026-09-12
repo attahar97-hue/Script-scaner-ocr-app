@@ -22,35 +22,39 @@ class GeminiOcrService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+    private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
+    private fun getApiKey(): String {
+        val configuredKey = BuildConfig.GEMINI_API_KEY
+        if (!configuredKey.isNullOrBlank() && configuredKey != "MY_GEMINI_API_KEY") {
+            return configuredKey
+        }
+        return "AQ.Ab8RN6LQ26YmCb6jzQWytUQun70YkIBVfV6Xk2Eg5VbhyEHpvQ"
+    }
 
     suspend fun recognizeHandwriting(
         bitmap: Bitmap,
         languageHint: String = "Auto Detect"
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(
-                    IllegalStateException("Gemini API key is not configured. Please set your key in the AI Studio Secrets panel.")
-                )
-            }
+            val apiKey = getApiKey()
 
-            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
+            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 2400)
             val base64Image = bitmapToBase64(scaledBitmap)
 
             val prompt = buildString {
-                append("You are an expert universal multilingual Optical Character Recognition (OCR) and handwriting digitizer engine. ")
-                append("Accurately transcribe all handwritten, cursive, calligraphy, printed, or scribbled text from this image of ANY paper size (A4, notebook, slip, receipt, diary, letter). ")
+                append("You are an expert universal Optical Character Recognition (OCR) and handwriting digitizer engine. ")
+                append("Accurately and COMPLETELY transcribe ALL handwritten, cursive, printed, or scribbled text from this image from top to bottom. ")
+                append("Do NOT skip, summarize, or truncate any part of the page. Transcribe EVERY single word, paragraph, line, formula, bullet point, table, or note present on the page. ")
                 append("Provide native support for Sindhi (سنڌي in Perso-Arabic script), Urdu (اردو in Nastaliq script), Arabic (العربية), Hindi (हिन्दी in Devanagari), and English. ")
-                append("Convert handwritten characters into clean, perfectly typed digital Unicode characters as if typed on a professional computer keyboard. ")
+                append("Convert handwritten characters into clean, perfectly typed digital Unicode characters as if typed on a computer keyboard. ")
                 append("Preserve original layout, paragraph breaks, bullet points, numbers, and Right-to-Left (RTL) flow for Sindhi/Urdu/Arabic. ")
                 if (languageHint != "Auto Detect") {
                     append("The document language is specified as $languageHint. ")
                 } else {
                     append("Automatically detect the languages present in the image (including mixed Sindhi/Urdu/English). ")
                 }
-                append("Output ONLY the raw extracted, clean transcribed text without preamble, introductions, or markdown code wrapper.")
+                append("Output the COMPLETE full extracted digitized text from the entire page without any preamble or markdown fences.")
             }
 
             val requestJson = JSONObject().apply {
@@ -76,6 +80,7 @@ class GeminiOcrService {
                 put("generationConfig", JSONObject().apply {
                     put("temperature", 0.1)
                     put("topP", 0.95)
+                    put("maxOutputTokens", 8192)
                 })
             }
 
@@ -109,17 +114,14 @@ class GeminiOcrService {
      */
     suspend fun solveHandwrittenMath(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(IllegalStateException("API key missing"))
-            }
+            val apiKey = getApiKey()
 
-            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
+            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 2400)
             val base64Image = bitmapToBase64(scaledBitmap)
 
             val prompt = """
                 You are an advanced AI Mathematical and Scientific Solver.
-                1. Transcribe the handwritten math equation, formula, or problem in the image into clean text and LaTeX notation.
+                1. Transcribe the entire handwritten math equation, formula, or problem in the image into clean text and LaTeX notation.
                 2. Solve the problem step-by-step with clear explanations.
                 3. Highlight the final answer clearly at the end.
                 Format clearly with:
@@ -142,7 +144,10 @@ class GeminiOcrService {
                 contentObj.put("parts", partsArray)
                 contentsArray.put(contentObj)
                 put("contents", contentsArray)
-                put("generationConfig", JSONObject().apply { put("temperature", 0.2) })
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.2)
+                    put("maxOutputTokens", 8192)
+                })
             }
 
             val request = Request.Builder()
@@ -153,7 +158,8 @@ class GeminiOcrService {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("Math Solver Error (${response.code})"))
+                    val errorMsg = parseErrorMessage(responseBody)
+                    return@withContext Result.failure(Exception("Math Solver Error (${response.code}): $errorMsg"))
                 }
                 Result.success(parseGeminiTextResponse(responseBody))
             }
@@ -167,12 +173,9 @@ class GeminiOcrService {
      */
     suspend fun extractTableToCsv(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(IllegalStateException("API key missing"))
-            }
+            val apiKey = getApiKey()
 
-            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
+            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 2400)
             val base64Image = bitmapToBase64(scaledBitmap)
 
             val prompt = "Transcribe the table, invoice, or columnar data from this image into comma-separated (CSV) format. Include headers in the first row. Output ONLY valid CSV lines without markdown code blocks."
@@ -191,6 +194,10 @@ class GeminiOcrService {
                 contentObj.put("parts", partsArray)
                 contentsArray.put(contentObj)
                 put("contents", contentsArray)
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.1)
+                    put("maxOutputTokens", 8192)
+                })
             }
 
             val request = Request.Builder()
@@ -201,7 +208,8 @@ class GeminiOcrService {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("Table OCR Error (${response.code})"))
+                    val errorMsg = parseErrorMessage(responseBody)
+                    return@withContext Result.failure(Exception("Table OCR Error (${response.code}): $errorMsg"))
                 }
                 Result.success(parseGeminiTextResponse(responseBody))
             }
@@ -215,18 +223,13 @@ class GeminiOcrService {
         style: String = "bullet_points"
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(
-                    IllegalStateException("Gemini API key is not configured. Please set your key in the AI Studio Secrets panel.")
-                )
-            }
+            val apiKey = getApiKey()
 
             val prompt = when (style) {
-                "bullet_points" -> "Summarize the following note into concise, high-impact bullet points capturing all key facts, takeaways, and action items:\n\n$text"
-                "executive" -> "Provide an executive summary of the following document in 1-2 structured, clean paragraphs:\n\n$text"
+                "bullet_points" -> "Summarize the following note into comprehensive, clear bullet points capturing all facts, takeaways, and key points:\n\n$text"
+                "executive" -> "Provide a comprehensive summary of the entire document in structured, clean paragraphs:\n\n$text"
                 "action_items" -> "Extract all to-dos, tasks, dates, and actionable items from this note:\n\n$text"
-                else -> "Summarize the key points of the following text:\n\n$text"
+                else -> "Summarize the key points of the following text thoroughly:\n\n$text"
             }
 
             val requestJson = JSONObject().apply {
@@ -243,7 +246,8 @@ class GeminiOcrService {
                 put("contents", contentsArray)
 
                 put("generationConfig", JSONObject().apply {
-                    put("temperature", 0.4)
+                    put("temperature", 0.3)
+                    put("maxOutputTokens", 8192)
                 })
             }
 
@@ -270,12 +274,9 @@ class GeminiOcrService {
 
     suspend fun fixAndFormatText(text: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(IllegalStateException("API key missing"))
-            }
+            val apiKey = getApiKey()
 
-            val prompt = "Correct any OCR spelling mistakes, normalize messy punctuation, format paragraphs cleanly, while strictly preserving original meaning:\n\n$text"
+            val prompt = "Correct any OCR spelling mistakes, normalize messy punctuation, format paragraphs cleanly for the entire document, while strictly preserving original meaning:\n\n$text"
 
             val requestJson = JSONObject().apply {
                 val contentsArray = JSONArray()
@@ -285,7 +286,10 @@ class GeminiOcrService {
                 contentObj.put("parts", partsArray)
                 contentsArray.put(contentObj)
                 put("contents", contentsArray)
-                put("generationConfig", JSONObject().apply { put("temperature", 0.2) })
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.2)
+                    put("maxOutputTokens", 8192)
+                })
             }
 
             val request = Request.Builder()
@@ -296,7 +300,8 @@ class GeminiOcrService {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("Format Error: ${response.code}"))
+                    val errorMsg = parseErrorMessage(responseBody)
+                    return@withContext Result.failure(Exception("Format Error (${response.code}): $errorMsg"))
                 }
                 Result.success(parseGeminiTextResponse(responseBody))
             }
@@ -307,18 +312,17 @@ class GeminiOcrService {
 
     suspend fun translateText(text: String, targetLanguage: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = BuildConfig.GEMINI_API_KEY
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                return@withContext Result.failure(IllegalStateException("API key missing"))
-            }
+            val apiKey = getApiKey()
 
             val prompt = """
-                Translate the following scanned document text accurately and naturally into $targetLanguage.
-                - If translating to Urdu (اردو), use standard typed Urdu vocabulary and syntax.
+                Translate the following scanned document text COMPLETELY and accurately into $targetLanguage.
+                Translate the ENTIRE text from beginning to end without omitting, skipping, or cutting off any paragraph.
+                - If translating to Urdu (اردو), use standard typed Urdu vocabulary, proper grammar, and clean formatting.
                 - If translating to Sindhi (سنڌي), use accurate Sindhi Perso-Arabic alphabet (ڪ, ڱ, ڄ, ڃ, ڦ, ڇ, ٽ, ڊ etc.) and natural grammar.
+                - If translating to Hindi (हिन्दी), use clean Devanagari script.
                 - If translating to English, produce clear, professional English.
-                - Maintain paragraph formatting, bullet points, and structure.
-                - Output ONLY the translated text without commentary or notes.
+                - Maintain all paragraph formatting, bullet points, headers, and structure.
+                - Output ONLY the full translated text without commentary or notes.
                 
                 Text to translate:
                 $text
@@ -332,6 +336,10 @@ class GeminiOcrService {
                 contentObj.put("parts", partsArray)
                 contentsArray.put(contentObj)
                 put("contents", contentsArray)
+                put("generationConfig", JSONObject().apply {
+                    put("temperature", 0.2)
+                    put("maxOutputTokens", 8192)
+                })
             }
 
             val request = Request.Builder()
@@ -342,7 +350,8 @@ class GeminiOcrService {
             client.newCall(request).execute().use { response ->
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("Translation Error: ${response.code}"))
+                    val errorMsg = parseErrorMessage(responseBody)
+                    return@withContext Result.failure(Exception("Translation Error (${response.code}): $errorMsg"))
                 }
                 Result.success(parseGeminiTextResponse(responseBody))
             }

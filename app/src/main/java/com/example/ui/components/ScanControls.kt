@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,6 +31,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -66,11 +70,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -241,37 +249,37 @@ fun ScanImagePreviewCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Special Tools Row: Math Solver & Signature Extractor
+            // Special Tools Row: Math Solver, Signature, Table CSV
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "Solve Math",
+                    icon = Icons.Default.Functions,
+                    iconColor = MaterialTheme.colorScheme.primary,
                     onClick = { viewModel.runMathSolver() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Functions, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Solve Math", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_solve_math"
+                )
 
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "Signature",
+                    icon = Icons.Default.Draw,
+                    iconColor = MaterialTheme.colorScheme.secondary,
                     onClick = { viewModel.extractDigitalSignature() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Draw, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Signature", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_signature"
+                )
 
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "To CSV",
+                    icon = Icons.Default.TableChart,
+                    iconColor = MaterialTheme.colorScheme.tertiary,
                     onClick = { viewModel.performTableToCsv() },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("To CSV", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_table_to_csv"
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -320,6 +328,12 @@ fun OcrResultEditorCard(
     val summaryText by viewModel.summaryText.collectAsStateWithLifecycle()
     val isSpeaking by viewModel.ttsManager.isPlaying.collectAsStateWithLifecycle()
     val speechRate by viewModel.ttsManager.speechRate.collectAsStateWithLifecycle()
+    var isExpandedView by remember { mutableStateOf(false) }
+
+    val wordCount = remember(editableText) {
+        if (editableText.isBlank()) 0 else editableText.trim().split(Regex("\\s+")).size
+    }
+    val charCount = remember(editableText) { editableText.length }
 
     Card(
         modifier = Modifier
@@ -346,43 +360,37 @@ fun OcrResultEditorCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // AI Features Action Row
+            // AI Features Action Row: Summarize, Fix & Polish, Translate
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "Summarize",
+                    icon = Icons.Default.AutoAwesome,
+                    iconColor = MaterialTheme.colorScheme.primary,
                     onClick = { viewModel.openAiDialog(AiDialogType.SUMMARIZE) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_open_ai_summarize")
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Summarize", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_open_ai_summarize"
+                )
 
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "Fix & Polish",
+                    icon = Icons.Default.Edit,
+                    iconColor = MaterialTheme.colorScheme.secondary,
                     onClick = { viewModel.openAiDialog(AiDialogType.FIX_GRAMMAR) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_open_ai_fix")
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Fix & Polish", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_open_ai_fix"
+                )
 
-                OutlinedButton(
+                AiActionToolCard(
+                    title = "Translate",
+                    icon = Icons.Default.Translate,
+                    iconColor = MaterialTheme.colorScheme.tertiary,
                     onClick = { viewModel.openAiDialog(AiDialogType.TRANSLATE) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_open_ai_translate")
-                ) {
-                    Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Translate", fontSize = 12.sp)
-                }
+                    modifier = Modifier.weight(1f),
+                    testTag = "btn_open_ai_translate"
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -428,13 +436,54 @@ fun OcrResultEditorCard(
                 }
             }
 
-            // Editable Digitized Text Field
+            // Header for Editable Digitized Text with Expand/Collapse & Stats
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Full Digitized Text",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "$wordCount words • $charCount chars",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { isExpandedView = !isExpandedView },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isExpandedView) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                        contentDescription = if (isExpandedView) "Standard View" else "Expand Full Page",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Editable Digitized Text Field with full page expansion
             OutlinedTextField(
                 value = editableText,
                 onValueChange = { viewModel.updateEditableText(it) },
-                label = { Text("Digitized Editable Text") },
-                minLines = 6,
-                maxLines = 14,
+                label = { Text(if (isExpandedView) "Full Page Digitized Content" else "Digitized Editable Text") },
+                minLines = if (isExpandedView) 18 else 8,
+                maxLines = if (isExpandedView) 60 else 18,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("input_editable_ocr_text"),
@@ -616,6 +665,57 @@ fun OcrResultEditorCard(
                     Text("Share", fontSize = 12.sp)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun AiActionToolCard(
+    title: String,
+    icon: ImageVector,
+    iconColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .height(52.dp)
+            .testTag(testTag),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(iconColor.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 11.5.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }

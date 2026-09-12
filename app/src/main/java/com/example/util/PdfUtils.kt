@@ -37,8 +37,8 @@ object PdfUtils {
 
             for (i in 0 until pageCount) {
                 val page = renderer.openPage(i)
-                val width = (page.width * 2).coerceAtLeast(800)
-                val height = (page.height * 2).coerceAtLeast(1000)
+                val width = (page.width * 3).coerceAtLeast(1200)
+                val height = (page.height * 3).coerceAtLeast(1600)
                 val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
 

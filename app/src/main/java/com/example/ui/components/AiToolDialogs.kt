@@ -262,8 +262,19 @@ fun AiToolBottomSheet(
             // Translate Action Triggers
             if (activeDialog == AiDialogType.TRANSLATE) {
                 var expanded by remember { mutableStateOf(false) }
-                var targetLang by remember { mutableStateOf("Hindi") }
-                val languages = listOf("Urdu", "Hindi", "Spanish", "French", "German", "Arabic", "Chinese", "Japanese", "English")
+                var targetLang by remember { mutableStateOf("Urdu (اردو)") }
+                val languages = listOf(
+                    "Urdu (اردو)",
+                    "Sindhi (سنڌي)",
+                    "Hindi (हिन्दी)",
+                    "English",
+                    "Arabic (العربية)",
+                    "Spanish",
+                    "French",
+                    "German",
+                    "Chinese",
+                    "Japanese"
+                )
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -301,11 +312,12 @@ fun AiToolBottomSheet(
                     onClick = { viewModel.performAiTranslate(targetLang) },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(46.dp)
                         .testTag("btn_translate_action")
                 ) {
                     Icon(Icons.Default.Translate, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Translate Now")
+                    Text("Translate Full Document", fontWeight = FontWeight.Bold)
                 }
             }
 
