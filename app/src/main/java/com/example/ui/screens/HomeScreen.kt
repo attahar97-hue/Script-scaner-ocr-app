@@ -84,6 +84,15 @@ fun HomeScreen(viewModel: OcrViewModel) {
     val aiTaskStatus by viewModel.aiTaskStatus.collectAsStateWithLifecycle()
     val aiResultText by viewModel.aiResultText.collectAsStateWithLifecycle()
 
+    // Camera Capture Launcher (using TakePicturePreview for instant photo without storage permission)
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            viewModel.setImageBitmap(bitmap, source = "CAMERA", defaultTitle = "Camera Scan")
+        }
+    }
+
     // Photo Picker Launcher (zero permission Android photo picker)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -132,13 +141,26 @@ fun HomeScreen(viewModel: OcrViewModel) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    ScanSourceCard(
+                        title = "Camera",
+                        subtitle = "Snap note",
+                        icon = Icons.Default.CameraAlt,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("card_scan_camera"),
+                        onClick = {
+                            cameraLauncher.launch(null)
+                        }
+                    )
+
                     ScanSourceCard(
                         title = "Gallery",
                         subtitle = "Select photo",
                         icon = Icons.Default.Collections,
-                        accentColor = MaterialTheme.colorScheme.primary,
+                        accentColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("card_scan_gallery"),
@@ -153,7 +175,7 @@ fun HomeScreen(viewModel: OcrViewModel) {
                         title = "PDF File",
                         subtitle = "Extract PDF",
                         icon = Icons.Default.PictureAsPdf,
-                        accentColor = MaterialTheme.colorScheme.secondary,
+                        accentColor = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("card_scan_pdf"),

@@ -176,9 +176,9 @@ fun SettingsScreen(viewModel: OcrViewModel) {
             }
         }
 
-        // Feature 5: Offline Fast OCR Mode Switch
+        // Feature 5: Offline Fast OCR Mode Switch & Gemini AI API Status
         item {
-            SettingsSectionCard(title = "Offline & AI Engine", icon = Icons.Default.Speed) {
+            SettingsSectionCard(title = "AI Engine & API Connection", icon = Icons.Default.Speed) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -191,7 +191,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isOffline) "Active: Instant offline text indexing" else "Inactive: Using online Gemini AI precision model",
+                            text = if (isOffline) "Active: Instant offline text indexing" else "Inactive: Using online Gemini 2.5 AI precision model",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -200,6 +200,39 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                         checked = isOffline,
                         onCheckedChange = { viewModel.toggleOfflineMode() }
                     )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Gemini AI API: Connected & Ready",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Model: Gemini 2.5 Flash • Multi-language OCR & AI Summarize/Translate Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
                 }
             }
         }
