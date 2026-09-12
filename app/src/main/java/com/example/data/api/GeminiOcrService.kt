@@ -22,14 +22,57 @@ class GeminiOcrService {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    // Model candidates: priority gemini-3.6-flash as requested by user, with graceful fallbacks
+    private val modelEndpoints = listOf(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+    )
 
     private fun getApiKey(): String {
         val configuredKey = BuildConfig.GEMINI_API_KEY
         if (!configuredKey.isNullOrBlank() && configuredKey != "MY_GEMINI_API_KEY") {
             return configuredKey
         }
-        return "AQ.Ab8RN6LQ26YmCb6jzQWytUQun70YkIBVfV6Xk2Eg5VbhyEHpvQ"
+        return "AQ.Ab8RN6LvXn83zhsmfxn3YGjGK2gF51QZLXFQm8EL4XC6nZlGhw"
+    }
+
+    private suspend fun executeWithFallback(requestJson: JSONObject): Result<String> = withContext(Dispatchers.IO) {
+        val apiKey = getApiKey()
+        var lastError = "Unknown error"
+
+        for (endpoint in modelEndpoints) {
+            try {
+                val request = Request.Builder()
+                    .url("$endpoint?key=$apiKey")
+                    .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    val responseBody = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val parsed = parseGeminiTextResponse(responseBody)
+                        if (parsed.isNotBlank()) {
+                            return@withContext Result.success(parsed)
+                        }
+                    } else {
+                        val errorMsg = parseErrorMessage(responseBody)
+                        lastError = "API Error (${response.code}): $errorMsg"
+                        Log.w("GeminiOcrService", "Failed on $endpoint: $lastError")
+                        // If 404 (model unavailable) or 400, try next model in list
+                        if (response.code == 404 || response.code == 400) {
+                            continue
+                        } else {
+                            return@withContext Result.failure(Exception(lastError))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                lastError = e.message ?: "Network error"
+                Log.w("GeminiOcrService", "Exception on $endpoint", e)
+            }
+        }
+        Result.failure(Exception(lastError))
     }
 
     suspend fun recognizeHandwriting(
@@ -84,25 +127,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("OCR API Error (${response.code}): $errorMsg"))
-                }
-
-                val recognizedText = parseGeminiTextResponse(responseBody)
-                if (recognizedText.isNotBlank()) {
-                    Result.success(recognizedText)
-                } else {
-                    Result.failure(Exception("No readable text could be recognized in the image."))
-                }
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Log.e("GeminiOcrService", "Handwriting recognition failed", e)
             Result.failure(e)
@@ -114,8 +139,6 @@ class GeminiOcrService {
      */
     suspend fun solveHandwrittenMath(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = getApiKey()
-
             val scaledBitmap = scaleBitmapIfNeeded(bitmap, 2400)
             val base64Image = bitmapToBase64(scaledBitmap)
 
@@ -150,19 +173,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("Math Solver Error (${response.code}): $errorMsg"))
-                }
-                Result.success(parseGeminiTextResponse(responseBody))
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -173,8 +184,6 @@ class GeminiOcrService {
      */
     suspend fun extractTableToCsv(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = getApiKey()
-
             val scaledBitmap = scaleBitmapIfNeeded(bitmap, 2400)
             val base64Image = bitmapToBase64(scaledBitmap)
 
@@ -200,19 +209,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("Table OCR Error (${response.code}): $errorMsg"))
-                }
-                Result.success(parseGeminiTextResponse(responseBody))
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -223,8 +220,6 @@ class GeminiOcrService {
         style: String = "bullet_points"
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = getApiKey()
-
             val prompt = when (style) {
                 "bullet_points" -> "Summarize the following note into comprehensive, clear bullet points capturing all facts, takeaways, and key points:\n\n$text"
                 "executive" -> "Provide a comprehensive summary of the entire document in structured, clean paragraphs:\n\n$text"
@@ -251,21 +246,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("Summarize Error (${response.code}): $errorMsg"))
-                }
-
-                val summaryText = parseGeminiTextResponse(responseBody)
-                Result.success(summaryText)
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Log.e("GeminiOcrService", "Summarization failed", e)
             Result.failure(e)
@@ -274,8 +255,6 @@ class GeminiOcrService {
 
     suspend fun fixAndFormatText(text: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = getApiKey()
-
             val prompt = "Correct any OCR spelling mistakes, normalize messy punctuation, format paragraphs cleanly for the entire document, while strictly preserving original meaning:\n\n$text"
 
             val requestJson = JSONObject().apply {
@@ -292,19 +271,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("Format Error (${response.code}): $errorMsg"))
-                }
-                Result.success(parseGeminiTextResponse(responseBody))
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -312,8 +279,6 @@ class GeminiOcrService {
 
     suspend fun translateText(text: String, targetLanguage: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val apiKey = getApiKey()
-
             val prompt = """
                 Translate the following scanned document text COMPLETELY and accurately into $targetLanguage.
                 Translate the ENTIRE text from beginning to end without omitting, skipping, or cutting off any paragraph.
@@ -342,19 +307,7 @@ class GeminiOcrService {
                 })
             }
 
-            val request = Request.Builder()
-                .url("$baseUrl?key=$apiKey")
-                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    val errorMsg = parseErrorMessage(responseBody)
-                    return@withContext Result.failure(Exception("Translation Error (${response.code}): $errorMsg"))
-                }
-                Result.success(parseGeminiTextResponse(responseBody))
-            }
+            executeWithFallback(requestJson)
         } catch (e: Exception) {
             Result.failure(e)
         }

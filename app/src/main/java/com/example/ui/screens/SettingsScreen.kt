@@ -191,7 +191,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isOffline) "Active: Instant offline text indexing" else "Inactive: Using online Gemini 2.5 AI precision model",
+                            text = if (isOffline) "Active: Instant offline text indexing" else "Inactive: Using online Gemini 3.6 AI precision model",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -226,7 +226,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Model: Gemini 2.5 Flash • Multi-language OCR & AI Summarize/Translate Active",
+                                text = "Model: Gemini 3.6 Flash • Free Tier Active (Online & Offline Enabled)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                                 fontSize = 10.sp
