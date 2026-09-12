@@ -2,29 +2,30 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Brand Palette - ScriptScan Navy & Vibrant Indigo
+// Primary Brand Palette - ScriptScan Navy & Vibrant Indigo on Soft Warm Yellow
 val BrandPrimaryLight = Color(0xFF1E40AF)
 val BrandOnPrimaryLight = Color(0xFFFFFFFF)
-val BrandPrimaryContainerLight = Color(0xFFDBEAFE)
-val BrandOnPrimaryContainerLight = Color(0xFF1E3A8A)
+val BrandPrimaryContainerLight = Color(0xFFFEF08A) // Soft sunny yellow container
+val BrandOnPrimaryContainerLight = Color(0xFF713F12) // Warm brown on yellow container
 
 val BrandSecondaryLight = Color(0xFF0D9488)
 val BrandOnSecondaryLight = Color(0xFFFFFFFF)
 val BrandSecondaryContainerLight = Color(0xFFCCFBF1)
 val BrandOnSecondaryContainerLight = Color(0xFF115E59)
 
-val BrandTertiaryLight = Color(0xFF6366F1)
+val BrandTertiaryLight = Color(0xFFD97706) // Warm Amber Tertiary
 val BrandOnTertiaryLight = Color(0xFFFFFFFF)
-val BrandTertiaryContainerLight = Color(0xFFE0E7FF)
-val BrandOnTertiaryContainerLight = Color(0xFF3730A3)
+val BrandTertiaryContainerLight = Color(0xFFFEF3C7)
+val BrandOnTertiaryContainerLight = Color(0xFF92400E)
 
-val BrandBackgroundLight = Color(0xFFF8FAFC)
-val BrandOnBackgroundLight = Color(0xFF0F172A)
-val BrandSurfaceLight = Color(0xFFFFFFFF)
-val BrandOnSurfaceLight = Color(0xFF0F172A)
-val BrandSurfaceVariantLight = Color(0xFFF1F5F9)
-val BrandOnSurfaceVariantLight = Color(0xFF475569)
-val BrandOutlineLight = Color(0xFFCBD5E1)
+// Soft Light Yellow (Halka Pila) Background & Warm Ivory Surfaces
+val BrandBackgroundLight = Color(0xFFFEFCE8) // Pastel Light Yellow (#FEFCE8)
+val BrandOnBackgroundLight = Color(0xFF1C1917) // Warm deep charcoal
+val BrandSurfaceLight = Color(0xFFFFFDF2) // Warm soft ivory-yellow
+val BrandOnSurfaceLight = Color(0xFF1C1917)
+val BrandSurfaceVariantLight = Color(0xFFFEF9C3) // Light pastel yellow accent variant
+val BrandOnSurfaceVariantLight = Color(0xFF574E3E)
+val BrandOutlineLight = Color(0xFFE5D5A5) // Soft golden cream border
 
 // Dark Theme Palette - Deep Cyber & Neon Cyan Accents
 val BrandPrimaryDark = Color(0xFF60A5FA)

@@ -19,13 +19,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Brightness4
-import androidx.compose.material.icons.filled.Brightness7
 import androidx.compose.material.icons.filled.BrightnessAuto
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
@@ -33,6 +31,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -45,8 +44,10 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -67,17 +69,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.ui.viewmodel.OcrViewModel
+import com.example.util.PdfUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: OcrViewModel) {
+    val context = LocalContext.current
     val darkModeSetting by viewModel.darkModeSetting.collectAsStateWithLifecycle()
     val selectedLang by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val speechRate by viewModel.ttsManager.speechRate.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOfflineMode.collectAsStateWithLifecycle()
+    val historyScans by viewModel.historyScans.collectAsStateWithLifecycle()
 
     var showClearDialog by remember { mutableStateOf(false) }
     var langDropdownExpanded by remember { mutableStateOf(false) }
-    val supportedLangs = listOf("Auto Detect", "English", "Hindi", "Spanish", "French", "German", "Arabic", "Urdu", "Chinese", "Japanese")
+    val supportedLangs = listOf("Auto Detect", "English", "Hindi", "Urdu", "Spanish", "French", "German", "Arabic", "Chinese", "Japanese")
 
     LazyColumn(
         modifier = Modifier
@@ -116,7 +122,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Version 1.0 • Smart AI Handwriting Recognizer",
+                            text = "v2.0 Pro • AI & Offline Handwriting Recognizer",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                         )
@@ -125,11 +131,11 @@ fun SettingsScreen(viewModel: OcrViewModel) {
             }
         }
 
-        // Theme Customization (Dark, Light, System)
+        // Theme Customization (Light, Dark, System Auto)
         item {
             SettingsSectionCard(title = "Appearance & Theme", icon = Icons.Default.Palette) {
                 Text(
-                    text = "Select Application Theme:",
+                    text = "Select Application Theme (Default: Soft Light Yellow):",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -140,16 +146,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ThemeOptionCard(
-                        title = "System",
-                        icon = Icons.Default.BrightnessAuto,
-                        isSelected = darkModeSetting == null,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("theme_system"),
-                        onClick = { viewModel.setDarkMode(null) }
-                    )
-                    ThemeOptionCard(
-                        title = "Light",
+                        title = "Light Yellow",
                         icon = Icons.Default.LightMode,
                         isSelected = darkModeSetting == false,
                         modifier = Modifier
@@ -158,7 +155,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                         onClick = { viewModel.setDarkMode(false) }
                     )
                     ThemeOptionCard(
-                        title = "Dark",
+                        title = "Dark Mode",
                         icon = Icons.Default.DarkMode,
                         isSelected = darkModeSetting == true,
                         modifier = Modifier
@@ -166,11 +163,48 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                             .testTag("theme_dark"),
                         onClick = { viewModel.setDarkMode(true) }
                     )
+                    ThemeOptionCard(
+                        title = "System Auto",
+                        icon = Icons.Default.BrightnessAuto,
+                        isSelected = darkModeSetting == null,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("theme_system"),
+                        onClick = { viewModel.setDarkMode(null) }
+                    )
                 }
             }
         }
 
-        // Recognition Preferences
+        // Feature 5: Offline Fast OCR Mode Switch
+        item {
+            SettingsSectionCard(title = "Offline & AI Engine", icon = Icons.Default.Speed) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Offline Fast OCR Engine",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isOffline) "Active: Instant offline text indexing" else "Inactive: Using online Gemini AI precision model",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isOffline,
+                        onCheckedChange = { viewModel.toggleOfflineMode() }
+                    )
+                }
+            }
+        }
+
+        // Recognition Language Hint
         item {
             SettingsSectionCard(title = "OCR & Language Preferences", icon = Icons.Default.Language) {
                 Text(
@@ -212,6 +246,29 @@ fun SettingsScreen(viewModel: OcrViewModel) {
             }
         }
 
+        // Feature 7: Cloud Backup & Google Drive Sync
+        item {
+            SettingsSectionCard(title = "Cloud Backup & Data Sync", icon = Icons.Default.CloudUpload) {
+                Text(
+                    text = "Export your entire scanned history and digitized notes to Google Drive or save a backup file.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        PdfUtils.exportCloudBackupJson(context, historyScans)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Export Backup JSON / Google Drive (${historyScans.size} Notes)")
+                }
+            }
+        }
+
         // Voice Output (TTS) Settings
         item {
             SettingsSectionCard(title = "Voice Output & Read Aloud", icon = Icons.Default.VolumeUp) {
@@ -245,7 +302,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
 
         // Privacy & Data Storage
         item {
-            SettingsSectionCard(title = "Privacy & Data Storage", icon = Icons.Default.Security) {
+            SettingsSectionCard(title = "Privacy & Local Database", icon = Icons.Default.Security) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Lock,
@@ -255,7 +312,7 @@ fun SettingsScreen(viewModel: OcrViewModel) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "100% Local Encrypted Room Database",
+                        text = "100% Encrypted Local SQLite / Room Database",
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -378,7 +435,8 @@ fun ThemeOptionCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp
             )
         }
     }

@@ -9,9 +9,21 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.net.Uri
 import java.io.InputStream
+import kotlin.math.max
+import kotlin.math.min
+
+enum class DocumentFilterMode {
+    ORIGINAL,
+    PRINT_READY,      // Print-Ready clean document (Pure white paper + crisp black ink)
+    MAGIC_COLOR,      // Brightens paper & sharpens ink
+    BLACK_AND_WHITE,  // Pure binary B&W for ultra crisp print
+    GRAYSCALE,        // Smooth grayscale
+    DOCUMENT_CLEAN    // Removes shadows and background stains
+}
 
 object ImageUtils {
 
@@ -33,39 +45,176 @@ object ImageUtils {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    fun applyHandwritingEnhancement(bitmap: Bitmap, enhanceContrast: Boolean, toGrayscale: Boolean): Bitmap {
-        if (!enhanceContrast && !toGrayscale) return bitmap
+    /**
+     * Feature 1: Auto Document Cropping & Edge Detection
+     * Scans pixels from the edges inward to detect dark boundaries or messy shadows
+     * and crops to the genuine paper note bounds.
+     */
+    fun autoCropPaperDocument(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        // Downsampled check for speed
+        val sampleStep = 8
+        var minX = width
+        var maxX = 0
+        var minY = height
+        var maxY = 0
+
+        for (y in 0 until height step sampleStep) {
+            for (x in 0 until width step sampleStep) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                val brightness = (r + g + b) / 3
+
+                // Detect if pixel is part of the bright paper note rather than dark surface
+                if (brightness > 90) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+
+        // Add 2% safety padding inside bounds
+        val padX = ((maxX - minX) * 0.02f).toInt()
+        val padY = ((maxY - minY) * 0.02f).toInt()
+
+        val left = max(0, minX - padX)
+        val top = max(0, minY - padY)
+        val right = min(width, maxX + padX)
+        val bottom = min(height, maxY + padY)
+
+        val cropWidth = right - left
+        val cropHeight = bottom - top
+
+        return if (cropWidth > width * 0.3f && cropHeight > height * 0.3f) {
+            Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+        } else {
+            bitmap
+        }
+    }
+
+    /**
+     * Feature 1: Advanced Document Filters (Magic Color, B&W, Document Clean)
+     */
+    fun applyDocumentFilter(bitmap: Bitmap, filterMode: DocumentFilterMode): Bitmap {
+        if (filterMode == DocumentFilterMode.ORIGINAL) return bitmap
 
         val output = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         val paint = Paint()
 
-        val matrix = ColorMatrix()
-        if (toGrayscale) {
-            matrix.setSaturation(0f)
-        }
-        if (enhanceContrast) {
-            // Boost contrast to make faint ink lines sharp against paper
-            val contrast = 1.35f
-            val brightness = -20f
-            val contrastMatrix = ColorMatrix(
-                floatArrayOf(
-                    contrast, 0f, 0f, 0f, brightness,
-                    0f, contrast, 0f, 0f, brightness,
-                    0f, 0f, contrast, 0f, brightness,
-                    0f, 0f, 0f, 1f, 0f
+        when (filterMode) {
+            DocumentFilterMode.ORIGINAL -> return bitmap
+            DocumentFilterMode.PRINT_READY -> {
+                // Adaptive Print Transformation: Brightens paper to crisp pure white and makes text deep black
+                val matrix = ColorMatrix()
+                matrix.setSaturation(0.05f) // Subtle ink tint preservation
+                val contrast = 2.2f
+                val brightness = -45f
+                val contrastMatrix = ColorMatrix(
+                    floatArrayOf(
+                        contrast, 0f, 0f, 0f, brightness,
+                        0f, contrast, 0f, 0f, brightness,
+                        0f, 0f, contrast, 0f, brightness,
+                        0f, 0f, 0f, 1f, 0f
+                    )
                 )
-            )
-            matrix.postConcat(contrastMatrix)
+                matrix.postConcat(contrastMatrix)
+                paint.colorFilter = ColorMatrixColorFilter(matrix)
+                canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            }
+            DocumentFilterMode.MAGIC_COLOR -> {
+                val matrix = ColorMatrix(
+                    floatArrayOf(
+                        1.4f, 0f, 0f, 0f, -30f,
+                        0f, 1.4f, 0f, 0f, -30f,
+                        0f, 0f, 1.4f, 0f, -30f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+                paint.colorFilter = ColorMatrixColorFilter(matrix)
+                canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            }
+            DocumentFilterMode.BLACK_AND_WHITE -> {
+                val matrix = ColorMatrix()
+                matrix.setSaturation(0f)
+                val contrast = 1.9f
+                val brightness = -60f
+                val contrastMatrix = ColorMatrix(
+                    floatArrayOf(
+                        contrast, 0f, 0f, 0f, brightness,
+                        0f, contrast, 0f, 0f, brightness,
+                        0f, 0f, contrast, 0f, brightness,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+                matrix.postConcat(contrastMatrix)
+                paint.colorFilter = ColorMatrixColorFilter(matrix)
+                canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            }
+            DocumentFilterMode.GRAYSCALE -> {
+                val matrix = ColorMatrix()
+                matrix.setSaturation(0f)
+                paint.colorFilter = ColorMatrixColorFilter(matrix)
+                canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            }
+            DocumentFilterMode.DOCUMENT_CLEAN -> {
+                val matrix = ColorMatrix(
+                    floatArrayOf(
+                        1.25f, 0f, 0f, 0f, 10f,
+                        0f, 1.25f, 0f, 0f, 10f,
+                        0f, 0f, 1.25f, 0f, 10f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+                paint.colorFilter = ColorMatrixColorFilter(matrix)
+                canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            }
         }
-
-        paint.colorFilter = ColorMatrixColorFilter(matrix)
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
         return output
     }
 
     /**
-     * Generates a sample handwritten note on lined paper canvas for instant user testing.
+     * Feature 6: Digital Signature & Stamp Extractor
+     * Extracts handwritten ink signature from background paper and turns background into transparent Alpha.
+     */
+    fun extractSignatureTransparent(bitmap: Bitmap, inkThreshold: Int = 180): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val r = Color.red(pixel)
+            val g = Color.green(pixel)
+            val b = Color.blue(pixel)
+            val brightness = (r + g + b) / 3
+
+            if (brightness < inkThreshold) {
+                // Ink stroke detected: calculate opacity based on darkness
+                val alpha = (255 * (inkThreshold - brightness) / inkThreshold).coerceIn(40, 255)
+                // Boost blue/black ink tone
+                pixels[i] = Color.argb(alpha, (r * 0.7f).toInt(), (g * 0.7f).toInt(), (b * 0.9f).toInt())
+            } else {
+                // Background paper made 100% transparent
+                pixels[i] = Color.TRANSPARENT
+            }
+        }
+
+        output.setPixels(pixels, 0, width, 0, 0, width, height)
+        return output
+    }
+
+    /**
+     * Preset handwritten note generators for quick testing
      */
     fun createSampleNoteBitmap(type: SampleNoteType): Pair<Bitmap, String> {
         val width = 900
@@ -78,7 +227,10 @@ object ImageUtils {
             SampleNoteType.STUDENT_LECTURE -> Color.rgb(255, 253, 245)
             SampleNoteType.MEETING_MINUTES -> Color.rgb(248, 250, 252)
             SampleNoteType.RECIPE_CARD -> Color.rgb(254, 243, 199)
+            SampleNoteType.SINDHI_URDU_NOTE -> Color.rgb(255, 255, 250)
             SampleNoteType.HINDI_MULTILINGUAL -> Color.rgb(255, 255, 255)
+            SampleNoteType.MATH_PHYSICS_EQUATION -> Color.rgb(255, 255, 255)
+            SampleNoteType.TABLE_INVOICE -> Color.rgb(250, 250, 250)
         }
         canvas.drawColor(paperColor)
 
@@ -166,21 +318,68 @@ Ingredients:
 - 1/2 cup unsalted butter
 Bake at 350°F for 35 mins until golden."""
             )
+            SampleNoteType.SINDHI_URDU_NOTE -> Triple(
+                "سنڌي ۽ اردو نوٽ (Sindhi & Urdu)",
+                listOf(
+                    "۱. سنڌي هٿ اکر نوٽ اسڪينر ڪامياب ٿيو",
+                    "۲. صاف ڪمپيوٽر ٽائپنگ ۾ تبديل ڪريو",
+                    "۳. اردو ۽ سنڌي مان انگريزي ۾ ترجمو ڪريو",
+                    "۴. پی ڈی ایف (PDF) اور ورڈ میں محفوظ کریں",
+                    "حالت: مڪمل ۽ تيار (Status: Ready)"
+                ),
+                """سنڌي ۽ اردو نوٽ (Sindhi & Urdu)
+۱. سنڌي هٿ اکر نوٽ اسڪينر ڪامياب ٿيو
+۲. صاف ڪمپيوٽر ٽائپنگ ۾ تبديل ڪريو
+۳. اردو ۽ سنڌي مان انگريزي ۾ ترجمو ڪريو
+۴. پی ڈی ایف (PDF) اور ورڈ میں محفوظ کریں
+حالت: مڪمل ۽ تيار (Status: Ready)"""
+            )
             SampleNoteType.HINDI_MULTILINGUAL -> Triple(
                 "हस्तलेख नोट / Project Checklist",
                 listOf(
                     "1. लिपि स्कैन - OCR परीक्षण सफल",
                     "2. हस्तलिखित नोट्स को डिजिटल टेक्स्ट में बदलें",
                     "3. AI Summarize & Voice Output",
-                    "4. PDF और TXT में आसानी से शेयर करें",
+                    "4. PDF और TXT میں آسانی سے شیئر کریں",
                     "Status: Completed & Ready"
                 ),
                 """हस्तलेख नोट / Project Checklist
 1. लिपि स्कैन - OCR परीक्षण सफल
 2. हस्तलिखित नोट्स को डिजिटल टेक्स्ट में बदलें
 3. AI Summarize & Voice Output
-4. PDF और TXT में आसानी से शेयर करें
+4. PDF اور TXT میں آسانی سے شیئر کریں
 Status: Completed & Ready"""
+            )
+            SampleNoteType.MATH_PHYSICS_EQUATION -> Triple(
+                "Calculus & Quadratic Formula",
+                listOf(
+                    "f(x) = 2x^2 + 5x - 3 = 0",
+                    "Roots: x = (-b +- sqrt(b^2 - 4ac)) / 2a",
+                    "x = (-5 +- sqrt(25 - 4(2)(-3))) / 4",
+                    "x = (-5 +- sqrt(49)) / 4 => x = 0.5, -3",
+                    "Integral: int(3x^2 dx) = x^3 + C"
+                ),
+                """Calculus & Quadratic Formula
+f(x) = 2x² + 5x - 3 = 0
+Roots: x = (-b ± √(b² - 4ac)) / (2a)
+x = (-5 ± √(25 - 4(2)(-3))) / 4
+x = (-5 ± √49) / 4 => x = 0.5 or x = -3
+Integral: ∫ 3x² dx = x³ + C"""
+            )
+            SampleNoteType.TABLE_INVOICE -> Triple(
+                "Grocery & Store Expense Log",
+                listOf(
+                    "Item, Qty, Price, Total",
+                    "Notebooks, 3, $4.50, $13.50",
+                    "Gel Pens (Pack), 2, $6.00, $12.00",
+                    "Sticky Notes, 4, $2.00, $8.00",
+                    "Grand Total: $33.50"
+                ),
+                """Item, Qty, Price, Total
+Notebooks, 3, $4.50, $13.50
+Gel Pens (Pack), 2, $6.00, $12.00
+Sticky Notes, 4, $2.00, $8.00
+Grand Total: $33.50"""
             )
         }
 
@@ -197,8 +396,11 @@ Status: Completed & Ready"""
 }
 
 enum class SampleNoteType(val displayName: String, val subtitle: String) {
-    STUDENT_LECTURE("Physics Lecture Notes", "Math formulas & cursive bullets"),
-    MEETING_MINUTES("Sprint Planning Notes", "Action items, tasks & dates"),
-    RECIPE_CARD("Handwritten Recipe", "Ingredients list & baking steps"),
-    HINDI_MULTILINGUAL("हिंदी / Multilingual Note", "Regional language & English mixed")
+    SINDHI_URDU_NOTE("سنڌي ۽ اردو نوٽ (Sindhi & Urdu)", "Sindhi & Urdu handwritten script"),
+    STUDENT_LECTURE("Physics Lecture", "Formulas & bullet points"),
+    MATH_PHYSICS_EQUATION("Math & Equations", "Calculus, integrals & solutions"),
+    TABLE_INVOICE("Table & Invoice", "Tabular data for Excel / CSV"),
+    MEETING_MINUTES("Meeting Notes", "Action items & tasks"),
+    RECIPE_CARD("Handwritten Recipe", "Ingredients & directions"),
+    HINDI_MULTILINGUAL("Urdu & Hindi Note", "Multi-language recognition")
 }

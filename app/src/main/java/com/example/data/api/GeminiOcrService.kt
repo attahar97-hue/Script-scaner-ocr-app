@@ -36,19 +36,21 @@ class GeminiOcrService {
                 )
             }
 
-            // Downscale bitmap if too huge for fast transfer while keeping sharp lines
             val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
             val base64Image = bitmapToBase64(scaledBitmap)
 
             val prompt = buildString {
-                append("You are an expert Optical Character Recognition (OCR) engine specialized in handwriting recognition. ")
-                append("Accurately transcribe all handwritten or printed text from this image. ")
-                append("Handle messy handwriting, cursive scripts, scribbled notes, lists, headers, and mathematical symbols. ")
-                append("Preserve the original layout, paragraph breaks, bullet points, and structure as faithfully as possible. ")
+                append("You are an expert universal multilingual Optical Character Recognition (OCR) and handwriting digitizer engine. ")
+                append("Accurately transcribe all handwritten, cursive, calligraphy, printed, or scribbled text from this image of ANY paper size (A4, notebook, slip, receipt, diary, letter). ")
+                append("Provide native support for Sindhi (سنڌي in Perso-Arabic script), Urdu (اردو in Nastaliq script), Arabic (العربية), Hindi (हिन्दी in Devanagari), and English. ")
+                append("Convert handwritten characters into clean, perfectly typed digital Unicode characters as if typed on a professional computer keyboard. ")
+                append("Preserve original layout, paragraph breaks, bullet points, numbers, and Right-to-Left (RTL) flow for Sindhi/Urdu/Arabic. ")
                 if (languageHint != "Auto Detect") {
-                    append("The handwritten text is likely in $languageHint language. ")
+                    append("The document language is specified as $languageHint. ")
+                } else {
+                    append("Automatically detect the languages present in the image (including mixed Sindhi/Urdu/English). ")
                 }
-                append("Provide ONLY the raw extracted transcript without conversational intro or markdown meta remarks.")
+                append("Output ONLY the raw extracted, clean transcribed text without preamble, introductions, or markdown code wrapper.")
             }
 
             val requestJson = JSONObject().apply {
@@ -56,12 +58,10 @@ class GeminiOcrService {
                 val contentObj = JSONObject()
                 val partsArray = JSONArray()
 
-                // Text prompt part
                 partsArray.put(JSONObject().apply {
                     put("text", prompt)
                 })
 
-                // Image inlineData part
                 partsArray.put(JSONObject().apply {
                     put("inlineData", JSONObject().apply {
                         put("mimeType", "image/jpeg")
@@ -73,9 +73,8 @@ class GeminiOcrService {
                 contentsArray.put(contentObj)
                 put("contents", contentsArray)
 
-                // Generation config
                 put("generationConfig", JSONObject().apply {
-                    put("temperature", 0.1) // Low temperature for high OCR fidelity
+                    put("temperature", 0.1)
                     put("topP", 0.95)
                 })
             }
@@ -101,6 +100,112 @@ class GeminiOcrService {
             }
         } catch (e: Exception) {
             Log.e("GeminiOcrService", "Handwriting recognition failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Feature 4: Handwritten Math & Science Equation Solver
+     */
+    suspend fun solveHandwrittenMath(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = BuildConfig.GEMINI_API_KEY
+            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+                return@withContext Result.failure(IllegalStateException("API key missing"))
+            }
+
+            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
+            val base64Image = bitmapToBase64(scaledBitmap)
+
+            val prompt = """
+                You are an advanced AI Mathematical and Scientific Solver.
+                1. Transcribe the handwritten math equation, formula, or problem in the image into clean text and LaTeX notation.
+                2. Solve the problem step-by-step with clear explanations.
+                3. Highlight the final answer clearly at the end.
+                Format clearly with:
+                - [TRANSCRIPTION & LATEX]
+                - [STEP-BY-STEP SOLUTION]
+                - [FINAL ANSWER]
+            """.trimIndent()
+
+            val requestJson = JSONObject().apply {
+                val contentsArray = JSONArray()
+                val contentObj = JSONObject()
+                val partsArray = JSONArray()
+                partsArray.put(JSONObject().apply { put("text", prompt) })
+                partsArray.put(JSONObject().apply {
+                    put("inlineData", JSONObject().apply {
+                        put("mimeType", "image/jpeg")
+                        put("data", base64Image)
+                    })
+                })
+                contentObj.put("parts", partsArray)
+                contentsArray.put(contentObj)
+                put("contents", contentsArray)
+                put("generationConfig", JSONObject().apply { put("temperature", 0.2) })
+            }
+
+            val request = Request.Builder()
+                .url("$baseUrl?key=$apiKey")
+                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(Exception("Math Solver Error (${response.code})"))
+                }
+                Result.success(parseGeminiTextResponse(responseBody))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Feature 3: Table / Receipt / Form OCR to CSV
+     */
+    suspend fun extractTableToCsv(bitmap: Bitmap): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = BuildConfig.GEMINI_API_KEY
+            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+                return@withContext Result.failure(IllegalStateException("API key missing"))
+            }
+
+            val scaledBitmap = scaleBitmapIfNeeded(bitmap, 1600)
+            val base64Image = bitmapToBase64(scaledBitmap)
+
+            val prompt = "Transcribe the table, invoice, or columnar data from this image into comma-separated (CSV) format. Include headers in the first row. Output ONLY valid CSV lines without markdown code blocks."
+
+            val requestJson = JSONObject().apply {
+                val contentsArray = JSONArray()
+                val contentObj = JSONObject()
+                val partsArray = JSONArray()
+                partsArray.put(JSONObject().apply { put("text", prompt) })
+                partsArray.put(JSONObject().apply {
+                    put("inlineData", JSONObject().apply {
+                        put("mimeType", "image/jpeg")
+                        put("data", base64Image)
+                    })
+                })
+                contentObj.put("parts", partsArray)
+                contentsArray.put(contentObj)
+                put("contents", contentsArray)
+            }
+
+            val request = Request.Builder()
+                .url("$baseUrl?key=$apiKey")
+                .post(requestJson.toString().toRequestBody("application/json".toMediaType()))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(Exception("Table OCR Error (${response.code})"))
+                }
+                Result.success(parseGeminiTextResponse(responseBody))
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -207,7 +312,17 @@ class GeminiOcrService {
                 return@withContext Result.failure(IllegalStateException("API key missing"))
             }
 
-            val prompt = "Translate the following scanned text accurately into $targetLanguage. Output only the translated text:\n\n$text"
+            val prompt = """
+                Translate the following scanned document text accurately and naturally into $targetLanguage.
+                - If translating to Urdu (اردو), use standard typed Urdu vocabulary and syntax.
+                - If translating to Sindhi (سنڌي), use accurate Sindhi Perso-Arabic alphabet (ڪ, ڱ, ڄ, ڃ, ڦ, ڇ, ٽ, ڊ etc.) and natural grammar.
+                - If translating to English, produce clear, professional English.
+                - Maintain paragraph formatting, bullet points, and structure.
+                - Output ONLY the translated text without commentary or notes.
+                
+                Text to translate:
+                $text
+            """.trimIndent()
 
             val requestJson = JSONObject().apply {
                 val contentsArray = JSONArray()

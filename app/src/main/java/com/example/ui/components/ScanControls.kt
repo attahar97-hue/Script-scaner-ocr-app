@@ -21,18 +21,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FilterBAndW
+import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VolumeUp
@@ -74,6 +77,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.viewmodel.AiDialogType
 import com.example.ui.viewmodel.OcrStatus
 import com.example.ui.viewmodel.OcrViewModel
+import com.example.util.DocumentFilterMode
 import com.example.util.PdfUtils
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -83,12 +87,12 @@ fun ScanImagePreviewCard(
     viewModel: OcrViewModel,
     ocrStatus: OcrStatus
 ) {
-    val contrast by viewModel.enhanceContrast.collectAsStateWithLifecycle()
-    val grayscale by viewModel.toGrayscale.collectAsStateWithLifecycle()
+    val activeFilter by viewModel.activeFilter.collectAsStateWithLifecycle()
     val selectedLang by viewModel.selectedLanguage.collectAsStateWithLifecycle()
+    val isOffline by viewModel.isOfflineMode.collectAsStateWithLifecycle()
 
     var langDropdownExpanded by remember { mutableStateOf(false) }
-    val supportedLangs = listOf("Auto Detect", "English", "Hindi", "Spanish", "French", "German", "Arabic", "Urdu", "Chinese", "Japanese")
+    val supportedLangs = listOf("Auto Detect", "English", "سنڌي (Sindhi)", "اردو (Urdu)", "हिन्दी (Hindi)", "Arabic (العربية)", "Spanish", "French", "German", "Chinese", "Japanese")
 
     Card(
         modifier = Modifier
@@ -98,7 +102,7 @@ fun ScanImagePreviewCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Preview Header
+            // Preview Header & Language
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -113,7 +117,7 @@ fun ScanImagePreviewCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Image & Handwriting Enhancer",
+                        text = "Document Enhancer & OCR",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -166,7 +170,7 @@ fun ScanImagePreviewCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(210.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
@@ -181,43 +185,93 @@ fun ScanImagePreviewCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Enhancement Adjustments Bar
+            // Feature 1: Auto-Crop, Rotate & Document Filters Strip
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 FilterChip(
                     selected = false,
+                    onClick = { viewModel.triggerAutoCrop() },
+                    label = { Text("Auto Crop", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    leadingIcon = { Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier.testTag("btn_auto_crop")
+                )
+
+                FilterChip(
+                    selected = false,
                     onClick = { viewModel.rotateImage() },
-                    label = { Text("Rotate 90°", fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.RotateRight, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    label = { Text("Rotate 90°", fontSize = 11.sp) },
+                    leadingIcon = { Icon(Icons.Default.RotateRight, contentDescription = null, modifier = Modifier.size(14.dp)) },
                     modifier = Modifier.testTag("btn_rotate_image")
                 )
 
                 FilterChip(
-                    selected = contrast,
-                    onClick = { viewModel.toggleContrastEnhancement() },
-                    label = { Text("Contrast Boost", fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.Contrast, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.testTag("btn_toggle_contrast")
+                    selected = activeFilter == DocumentFilterMode.PRINT_READY,
+                    onClick = { viewModel.setDocumentFilter(if (activeFilter == DocumentFilterMode.PRINT_READY) DocumentFilterMode.ORIGINAL else DocumentFilterMode.PRINT_READY) },
+                    label = { Text("Print-Ready (پرنٹ)", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.testTag("btn_filter_print_ready")
                 )
 
                 FilterChip(
-                    selected = grayscale,
-                    onClick = { viewModel.toggleGrayscale() },
-                    label = { Text("B&W / Grayscale", fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.FilterBAndW, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.testTag("btn_toggle_grayscale")
+                    selected = activeFilter == DocumentFilterMode.MAGIC_COLOR,
+                    onClick = { viewModel.setDocumentFilter(if (activeFilter == DocumentFilterMode.MAGIC_COLOR) DocumentFilterMode.ORIGINAL else DocumentFilterMode.MAGIC_COLOR) },
+                    label = { Text("Magic Color", fontSize = 11.sp) },
+                    leadingIcon = { Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer)
                 )
+
+                FilterChip(
+                    selected = activeFilter == DocumentFilterMode.BLACK_AND_WHITE,
+                    onClick = { viewModel.setDocumentFilter(if (activeFilter == DocumentFilterMode.BLACK_AND_WHITE) DocumentFilterMode.ORIGINAL else DocumentFilterMode.BLACK_AND_WHITE) },
+                    label = { Text("B&W Clean", fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer)
+                )
+
+                FilterChip(
+                    selected = activeFilter == DocumentFilterMode.GRAYSCALE,
+                    onClick = { viewModel.setDocumentFilter(if (activeFilter == DocumentFilterMode.GRAYSCALE) DocumentFilterMode.ORIGINAL else DocumentFilterMode.GRAYSCALE) },
+                    label = { Text("Grayscale", fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Special Tools Row: Math Solver & Signature Extractor
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { viewModel.runMathSolver() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Functions, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Solve Math", fontSize = 12.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { viewModel.extractDigitalSignature() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Draw, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Signature", fontSize = 12.sp)
+                }
+
+                OutlinedButton(
+                    onClick = { viewModel.performTableToCsv() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("To CSV", fontSize = 12.sp)
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -244,13 +298,17 @@ fun ScanImagePreviewCard(
                 } else {
                     Icon(Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Extract Handwritten Text", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (isOffline) "Extract Text (Offline Mode)" else "Extract Handwritten Text (AI)",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OcrResultEditorCard(
     viewModel: OcrViewModel,
@@ -271,28 +329,20 @@ fun OcrResultEditorCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Note Title & Header Actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { viewModel.updateDocumentTitle(it) },
-                        label = { Text("Note Title") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("input_document_title"),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
-                    )
-                }
-            }
+            // Note Title
+            OutlinedTextField(
+                value = title,
+                onValueChange = { viewModel.updateDocumentTitle(it) },
+                label = { Text("Note Title") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_document_title"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                )
+            )
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -394,9 +444,41 @@ fun OcrResultEditorCard(
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Text-To-Speech (Voice Output) Player Bar
+            // Quick Multilingual Translation Quick-Bar
+            Text(
+                text = "⚡ 1-Tap Quick Translation (ترجمو / ترجمہ):",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    "English" to "🌐 English",
+                    "Urdu (اردو)" to "🌐 اردو",
+                    "Sindhi (سنڌي)" to "🌐 سنڌي",
+                    "Hindi (हिन्दी)" to "🌐 हिन्दी",
+                    "Arabic (العربية)" to "🌐 العربية"
+                ).forEach { (targetLang, label) ->
+                    FilterChip(
+                        selected = false,
+                        onClick = { viewModel.runQuickTranslate(targetLang) },
+                        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Voice Player Bar
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -461,80 +543,77 @@ fun OcrResultEditorCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Export & Share Action Bar
-            Row(
+            // Feature 3: Full Professional Export Bar (PDF, Word, CSV, TXT, Copy, Share)
+            Text(
+                text = "Export & Share Document Formats:",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Button(
                     onClick = { PdfUtils.copyToClipboard(context, editableText) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_copy_ocr_text"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(10.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Copy", color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 13.sp)
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Copy", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
 
                 Button(
                     onClick = { PdfUtils.exportAndSharePdf(context, title, editableText, summaryText) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_export_pdf"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    shape = RoundedCornerShape(10.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.PictureAsPdf,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("PDF", color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 13.sp)
+                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("PDF", color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { PdfUtils.exportAndShareWord(context, title, editableText, summaryText) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Word (.doc)", color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = { PdfUtils.exportAndShareCsv(context, title, editableText) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Excel/CSV", color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
                     onClick = { PdfUtils.exportAndShareTxt(context, title, editableText, summaryText) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_export_txt"),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                    shape = RoundedCornerShape(10.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.TextSnippet,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("TXT", color = MaterialTheme.colorScheme.onTertiaryContainer, fontSize = 13.sp)
+                    Icon(Icons.Default.TextSnippet, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("TXT", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
 
                 Button(
                     onClick = { PdfUtils.sharePlainText(context, editableText, title) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("btn_share_text"),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Share", fontSize = 13.sp)
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Share", fontSize = 12.sp)
                 }
             }
         }
