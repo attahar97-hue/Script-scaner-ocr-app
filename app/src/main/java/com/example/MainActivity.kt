@@ -7,10 +7,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import com.example.ads.AdBanner
+import com.example.ads.AdManager
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.History
@@ -57,6 +60,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        AdManager.initialize(applicationContext)
 
         setContent {
             val darkModeSetting by viewModel.darkModeSetting.collectAsStateWithLifecycle()
@@ -69,7 +73,10 @@ class MainActivity : ComponentActivity() {
                 Crossfade(targetState = showSplash, label = "splash_transition") { isSplashVisible ->
                     if (isSplashVisible) {
                         SplashScreen(
-                            onDismiss = { showSplash = false }
+                            onDismiss = {
+                                showSplash = false
+                                AdManager.showAppOpenAd(this@MainActivity)
+                            }
                         )
                     } else {
                         val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
@@ -114,70 +121,73 @@ class MainActivity : ComponentActivity() {
                                 )
                             },
                             bottomBar = {
-                                NavigationBar(
-                                    containerColor = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.testTag("bottom_navigation_bar")
-                                ) {
-                                    NavigationBarItem(
-                                        selected = selectedTab == 0,
-                                        onClick = { viewModel.setTab(0) },
-                                        icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "Scan & OCR") },
-                                        label = { Text("Scan") },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                        ),
-                                        modifier = Modifier.testTag("nav_tab_scan")
-                                    )
+                                Column(modifier = Modifier.testTag("bottom_bar_container")) {
+                                    AdBanner()
+                                    NavigationBar(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.testTag("bottom_navigation_bar")
+                                    ) {
+                                        NavigationBarItem(
+                                            selected = selectedTab == 0,
+                                            onClick = { viewModel.setTab(0) },
+                                            icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "Scan & OCR") },
+                                            label = { Text("Scan") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_scan")
+                                        )
 
-                                    NavigationBarItem(
-                                        selected = selectedTab == 1,
-                                        onClick = { viewModel.setTab(1) },
-                                        icon = { Icon(Icons.Default.Layers, contentDescription = "Batch Scanner") },
-                                        label = { Text("Batch") },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.secondary,
-                                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                                        ),
-                                        modifier = Modifier.testTag("nav_tab_batch")
-                                    )
+                                        NavigationBarItem(
+                                            selected = selectedTab == 1,
+                                            onClick = { viewModel.setTab(1) },
+                                            icon = { Icon(Icons.Default.Layers, contentDescription = "Batch Scanner") },
+                                            label = { Text("Batch") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.secondary,
+                                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_batch")
+                                        )
 
-                                    NavigationBarItem(
-                                        selected = selectedTab == 2,
-                                        onClick = { viewModel.setTab(2) },
-                                        icon = { Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF Studio") },
-                                        label = { Text("PDF") },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.tertiary,
-                                            indicatorColor = MaterialTheme.colorScheme.tertiaryContainer
-                                        ),
-                                        modifier = Modifier.testTag("nav_tab_pdf")
-                                    )
+                                        NavigationBarItem(
+                                            selected = selectedTab == 2,
+                                            onClick = { viewModel.setTab(2) },
+                                            icon = { Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF Studio") },
+                                            label = { Text("PDF") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.tertiary,
+                                                indicatorColor = MaterialTheme.colorScheme.tertiaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_pdf")
+                                        )
 
-                                    NavigationBarItem(
-                                        selected = selectedTab == 3,
-                                        onClick = { viewModel.setTab(3) },
-                                        icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                                        label = { Text("History") },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                        ),
-                                        modifier = Modifier.testTag("nav_tab_history")
-                                    )
+                                        NavigationBarItem(
+                                            selected = selectedTab == 3,
+                                            onClick = { viewModel.setTab(3) },
+                                            icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                                            label = { Text("History") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_history")
+                                        )
 
-                                    NavigationBarItem(
-                                        selected = selectedTab == 4,
-                                        onClick = { viewModel.setTab(4) },
-                                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                                        label = { Text("Settings") },
-                                        colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                                        ),
-                                        modifier = Modifier.testTag("nav_tab_settings")
-                                    )
+                                        NavigationBarItem(
+                                            selected = selectedTab == 4,
+                                            onClick = { viewModel.setTab(4) },
+                                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                                            label = { Text("Settings") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_settings")
+                                        )
+                                    }
                                 }
                             }
                         ) { innerPadding ->
