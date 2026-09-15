@@ -19,10 +19,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Validate and Fix Gradle Wrapper Permissions
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Gradle Wrapper if missing
         run: |
-          chmod +x gradlew || true
-          git update-index --chmod=+x gradlew || true
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
 
       - name: Build Release Bundle (AAB)
         run: ./gradlew bundleRelease --no-daemon --stacktrace
