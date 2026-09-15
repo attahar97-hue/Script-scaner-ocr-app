@@ -21,16 +21,16 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
 
-      - name: Generate Gradle Wrapper if missing
+      - name: Generate Gradle Wrapper
         run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
+          gradle wrapper --gradle-version 8.5
           chmod +x gradlew
 
       - name: Build Release Bundle (AAB)
-        run: ./gradlew bundleRelease --no-daemon --stacktrace
+        run: ./gradlew bundleRelease --stacktrace
 
       - name: Upload Release AAB File
         uses: actions/upload-artifact@v4
