@@ -31,7 +31,10 @@ class GeminiOcrService {
 
     private fun getApiKey(): String {
         val configuredKey = BuildConfig.GEMINI_API_KEY
-        if (!configuredKey.isNullOrBlank() && configuredKey != "MY_GEMINI_API_KEY") {
+        if (!configuredKey.isNullOrBlank() &&
+            configuredKey != "MY_GEMINI_API_KEY" &&
+            configuredKey != "your_api_key_here" &&
+            !configuredKey.startsWith("your_")) {
             return configuredKey
         }
         return "AQ.Ab8RN6LvXn83zhsmfxn3YGjGK2gF51QZLXFQm8EL4XC6nZlGhw"

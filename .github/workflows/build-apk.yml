@@ -1,4 +1,4 @@
-name: Build Android Release AAB
+name: Build Android Release AAB & APK
 
 on:
   push:
@@ -19,14 +19,37 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle System
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
 
-      - name: Build Release AAB using System Gradle
+      - name: Prepare Environment and Signing Key
+        run: |
+          touch .env
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          fi
+          if [ ! -f my-upload-key.jks ] && [ ! -f debug.keystore ]; then
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build Release AAB (Android App Bundle)
         run: gradle bundleRelease --stacktrace
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-aab
+          name: ScriptScan-Release-AAB
           path: app/build/outputs/bundle/release/*.aab
+
+      - name: Build Release APK
+        run: gradle assembleRelease --stacktrace
+        continue-on-error: true
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScriptScan-Release-APK
+          path: app/build/outputs/apk/release/*.apk
+        if: always()
