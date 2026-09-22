@@ -88,6 +88,11 @@ import com.example.ui.viewmodel.OcrViewModel
 import com.example.util.DocumentFilterMode
 import com.example.util.PdfUtils
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.Close
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ScanImagePreviewCard(
@@ -100,6 +105,8 @@ fun ScanImagePreviewCard(
     val isOffline by viewModel.isOfflineMode.collectAsStateWithLifecycle()
 
     var langDropdownExpanded by remember { mutableStateOf(false) }
+    var showAdjustCropDialog by remember { mutableStateOf(false) }
+    var showFullScreenImage by remember { mutableStateOf(false) }
     val supportedLangs = listOf("Auto Detect", "English", "سنڌي (Sindhi)", "اردو (Urdu)", "हिन्दी (Hindi)", "Arabic (العربية)", "Spanish", "French", "German", "Chinese", "Japanese")
 
     Card(
@@ -174,11 +181,11 @@ fun ScanImagePreviewCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Bitmap Image Canvas
+            // Bitmap Image Canvas (Full width & responsive height)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp)
+                    .heightIn(min = 250.dp, max = 460.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
@@ -189,16 +196,47 @@ fun ScanImagePreviewCard(
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.Fit
                 )
+
+                // Quick Floating Actions: Fullscreen & CamScanner Crop
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(Color(0x99000000), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    IconButton(
+                        onClick = { showFullScreenImage = true },
+                        modifier = Modifier.size(34.dp).testTag("btn_preview_full_screen")
+                    ) {
+                        Icon(Icons.Default.Fullscreen, contentDescription = "Full Screen", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(
+                        onClick = { showAdjustCropDialog = true },
+                        modifier = Modifier.size(34.dp).testTag("btn_preview_crop_angles")
+                    ) {
+                        Icon(Icons.Default.Crop, contentDescription = "Adjust Angles", tint = Color(0xFF00E676), modifier = Modifier.size(20.dp))
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Feature 1: Auto-Crop, Rotate & Document Filters Strip
+            // Auto-Crop, Rotate & Document Filters Strip
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                FilterChip(
+                    selected = false,
+                    onClick = { showAdjustCropDialog = true },
+                    label = { Text("A4 & Angle Crop (✔)", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold) },
+                    leadingIcon = { Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF00C853)) },
+                    colors = FilterChipDefaults.filterChipColors(containerColor = Color(0xFF00C853).copy(alpha = 0.15f)),
+                    modifier = Modifier.testTag("btn_camscanner_crop_chip")
+                )
+
                 FilterChip(
                     selected = false,
                     onClick = { viewModel.triggerAutoCrop() },
@@ -245,6 +283,49 @@ fun ScanImagePreviewCard(
                     label = { Text("Grayscale", fontSize = 11.sp) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer)
                 )
+            }
+
+            if (showAdjustCropDialog) {
+                DocumentAngleCropDialog(
+                    originalBitmap = bitmap,
+                    onDismiss = { showAdjustCropDialog = false },
+                    onCropConfirmed = { cropped ->
+                        showAdjustCropDialog = false
+                        viewModel.setImageBitmap(cropped, source = "CAMSCANNER", defaultTitle = "Scanned Note")
+                        viewModel.runHandwritingOcr()
+                    }
+                )
+            }
+
+            if (showFullScreenImage) {
+                Dialog(
+                    onDismissRequest = { showFullScreenImage = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                            .testTag("full_screen_image_dialog"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Full Screen Document",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                        IconButton(
+                            onClick = { showFullScreenImage = false },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                                .background(Color(0x88000000), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))

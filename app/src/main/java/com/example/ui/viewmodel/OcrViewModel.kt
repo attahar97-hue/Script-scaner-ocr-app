@@ -196,6 +196,14 @@ class OcrViewModel(application: Application) : AndroidViewModel(application) {
         _editableText.value = newText
     }
 
+    fun appendTextToDocument(extra: String) {
+        if (_editableText.value.isBlank()) {
+            _editableText.value = extra.trim()
+        } else {
+            _editableText.value = _editableText.value + "\n" + extra.trim()
+        }
+    }
+
     fun updateDocumentTitle(newTitle: String) {
         _documentTitle.value = newTitle
     }

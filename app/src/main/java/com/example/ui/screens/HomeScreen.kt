@@ -67,6 +67,14 @@ import com.example.ui.components.OcrResultEditorCard
 import com.example.ui.components.ScanImagePreviewCard
 import com.example.ui.viewmodel.AiDialogType
 import com.example.ui.viewmodel.OcrStatus
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.ui.components.CamScannerCameraDialog
+import com.example.ui.components.DocumentAngleCropDialog
 import com.example.ui.viewmodel.OcrViewModel
 import com.example.util.ImageUtils
 import com.example.util.SampleNoteType
@@ -84,12 +92,15 @@ fun HomeScreen(viewModel: OcrViewModel) {
     val aiTaskStatus by viewModel.aiTaskStatus.collectAsStateWithLifecycle()
     val aiResultText by viewModel.aiResultText.collectAsStateWithLifecycle()
 
-    // Camera Capture Launcher (using TakePicturePreview for instant photo without storage permission)
+    var showCameraDialog by remember { mutableStateOf(false) }
+    var pendingCropBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    // Camera Capture Launcher (fallback system camera)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap: Bitmap? ->
         if (bitmap != null) {
-            viewModel.setImageBitmap(bitmap, source = "CAMERA", defaultTitle = "Camera Scan")
+            pendingCropBitmap = bitmap
         }
     }
 
@@ -100,7 +111,7 @@ fun HomeScreen(viewModel: OcrViewModel) {
         if (uri != null) {
             val bitmap = ImageUtils.loadBitmapFromUri(context, uri)
             if (bitmap != null) {
-                viewModel.setImageBitmap(bitmap, source = "GALLERY", defaultTitle = "Gallery Note")
+                pendingCropBitmap = bitmap
             } else {
                 Toast.makeText(context, "Could not load image", Toast.LENGTH_SHORT).show()
             }
@@ -145,20 +156,20 @@ fun HomeScreen(viewModel: OcrViewModel) {
                 ) {
                     ScanSourceCard(
                         title = "Camera",
-                        subtitle = "Snap note",
+                        subtitle = "A4 & Angle",
                         icon = Icons.Default.CameraAlt,
                         accentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("card_scan_camera"),
                         onClick = {
-                            cameraLauncher.launch(null)
+                            showCameraDialog = true
                         }
                     )
 
                     ScanSourceCard(
                         title = "Gallery",
-                        subtitle = "Select photo",
+                        subtitle = "Auto crop",
                         icon = Icons.Default.Collections,
                         accentColor = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier
@@ -183,6 +194,56 @@ fun HomeScreen(viewModel: OcrViewModel) {
                             pdfPickerLauncher.launch(arrayOf("application/pdf"))
                         }
                     )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Quick entry to Professional & Zakat Calculator
+                Surface(
+                    onClick = { viewModel.setTab(3) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("banner_pro_calculator")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Default.Calculate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Professional & Zakat Calculator (کیلکولیٹر)",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Math calculations & 2.5% Zakat Nisab calculator with instant note insertion",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -248,6 +309,36 @@ fun HomeScreen(viewModel: OcrViewModel) {
                 FeaturesHighlightSection()
                 Spacer(modifier = Modifier.height(24.dp))
             }
+        }
+
+        // CamScanner Live Viewfinder Dialog
+        if (showCameraDialog) {
+            CamScannerCameraDialog(
+                onDismiss = { showCameraDialog = false },
+                onImageCaptured = { bmp ->
+                    showCameraDialog = false
+                    pendingCropBitmap = bmp
+                },
+                onOpenGallery = {
+                    showCameraDialog = false
+                    photoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+            )
+        }
+
+        // CamScanner 4-Corner Perspective Angle Crop Dialog
+        if (pendingCropBitmap != null) {
+            DocumentAngleCropDialog(
+                originalBitmap = pendingCropBitmap!!,
+                onDismiss = { pendingCropBitmap = null },
+                onCropConfirmed = { cropped ->
+                    pendingCropBitmap = null
+                    viewModel.setImageBitmap(cropped, source = "CAMSCANNER", defaultTitle = "Scanned Document")
+                    viewModel.runHandwritingOcr()
+                }
+            )
         }
 
         // AI Tool Modal Bottom Sheet

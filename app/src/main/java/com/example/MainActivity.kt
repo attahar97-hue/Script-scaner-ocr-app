@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import com.example.ads.AdBanner
 import com.example.ads.AdManager
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.History
@@ -44,6 +45,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.screens.BatchScannerScreen
+import com.example.ui.screens.CalculatorScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.PdfConverterScreen
@@ -91,8 +93,9 @@ class MainActivity : ComponentActivity() {
                                                 0 -> "ScriptScan OCR"
                                                 1 -> "Batch Scanner"
                                                 2 -> "PDF Studio"
-                                                3 -> "Scan History"
-                                                4 -> "Settings"
+                                                3 -> "Calculator & Zakat"
+                                                4 -> "Scan History"
+                                                5 -> "Settings"
                                                 else -> "ScriptScan OCR"
                                             },
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -167,6 +170,18 @@ class MainActivity : ComponentActivity() {
                                         NavigationBarItem(
                                             selected = selectedTab == 3,
                                             onClick = { viewModel.setTab(3) },
+                                            icon = { Icon(Icons.Default.Calculate, contentDescription = "Calculator & Zakat") },
+                                            label = { Text("Calc") },
+                                            colors = NavigationBarItemDefaults.colors(
+                                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                                            ),
+                                            modifier = Modifier.testTag("nav_tab_calculator")
+                                        )
+
+                                        NavigationBarItem(
+                                            selected = selectedTab == 4,
+                                            onClick = { viewModel.setTab(4) },
                                             icon = { Icon(Icons.Default.History, contentDescription = "History") },
                                             label = { Text("History") },
                                             colors = NavigationBarItemDefaults.colors(
@@ -177,8 +192,8 @@ class MainActivity : ComponentActivity() {
                                         )
 
                                         NavigationBarItem(
-                                            selected = selectedTab == 4,
-                                            onClick = { viewModel.setTab(4) },
+                                            selected = selectedTab == 5,
+                                            onClick = { viewModel.setTab(5) },
                                             icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                                             label = { Text("Settings") },
                                             colors = NavigationBarItemDefaults.colors(
@@ -200,8 +215,9 @@ class MainActivity : ComponentActivity() {
                                     0 -> HomeScreen(viewModel = viewModel)
                                     1 -> BatchScannerScreen(viewModel = viewModel)
                                     2 -> PdfConverterScreen(viewModel = viewModel)
-                                    3 -> HistoryScreen(viewModel = viewModel)
-                                    4 -> SettingsScreen(viewModel = viewModel)
+                                    3 -> CalculatorScreen(viewModel = viewModel)
+                                    4 -> HistoryScreen(viewModel = viewModel)
+                                    5 -> SettingsScreen(viewModel = viewModel)
                                 }
                             }
                         }

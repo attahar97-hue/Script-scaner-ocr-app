@@ -46,7 +46,58 @@ object ImageUtils {
     }
 
     /**
-     * Feature 1: Auto Document Cropping & Edge Detection
+     * CamScanner 4-Corner Angle & Perspective Transformation
+     * Maps 4 quad corners [tlX, tlY, trX, trY, brX, brY, blX, blY] into a rectangular destination
+     */
+    fun cropPerspective(
+        bitmap: Bitmap,
+        points: FloatArray, // 8 floats: topLeft (x,y), topRight (x,y), bottomRight (x,y), bottomLeft (x,y)
+        outputWidth: Int = 0,
+        outputHeight: Int = 0
+    ): Bitmap {
+        if (points.size < 8) return bitmap
+
+        val tlX = points[0]
+        val tlY = points[1]
+        val trX = points[2]
+        val trY = points[3]
+        val brX = points[4]
+        val brY = points[5]
+        val blX = points[6]
+        val blY = points[7]
+
+        // Calculate average widths and heights for natural aspect ratio if not passed
+        val topWidth = Math.hypot((trX - tlX).toDouble(), (trY - tlY).toDouble()).toFloat()
+        val bottomWidth = Math.hypot((brX - blX).toDouble(), (brY - blY).toDouble()).toFloat()
+        val leftHeight = Math.hypot((blX - tlX).toDouble(), (blY - tlY).toDouble()).toFloat()
+        val rightHeight = Math.hypot((brX - trX).toDouble(), (brY - trY).toDouble()).toFloat()
+
+        val targetWidth = if (outputWidth > 0) outputWidth else max(100, max(topWidth, bottomWidth).toInt())
+        val targetHeight = if (outputHeight > 0) outputHeight else max(100, max(leftHeight, rightHeight).toInt())
+
+        val src = points
+        val dst = floatArrayOf(
+            0f, 0f,
+            targetWidth.toFloat(), 0f,
+            targetWidth.toFloat(), targetHeight.toFloat(),
+            0f, targetHeight.toFloat()
+        )
+
+        val matrix = Matrix()
+        val success = matrix.setPolyToPoly(src, 0, dst, 0, 4)
+        if (!success) {
+            return bitmap
+        }
+
+        val result = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        canvas.drawBitmap(bitmap, matrix, paint)
+        return result
+    }
+
+    /**
+     * Auto Document Cropping & Edge Detection
      * Scans pixels from the edges inward to detect dark boundaries or messy shadows
      * and crops to the genuine paper note bounds.
      */
