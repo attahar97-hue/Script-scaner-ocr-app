@@ -70,6 +70,7 @@ import com.example.ui.viewmodel.OcrStatus
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -198,18 +199,21 @@ fun HomeScreen(viewModel: OcrViewModel) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Quick entry to Professional & Zakat Calculator
+                // Separate Quick Access Card 1: Professional Calculator (کاروباری حساب و کتاب / بل کیلکولیٹر)
                 Surface(
-                    onClick = { viewModel.setTab(3) },
+                    onClick = {
+                        viewModel.setCalculatorSubTab(0)
+                        viewModel.setTab(3)
+                    },
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("banner_pro_calculator")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -217,21 +221,29 @@ fun HomeScreen(viewModel: OcrViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Icon(
-                                Icons.Default.Calculate,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Calculate,
+                                        contentDescription = "Calculator Logo",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Professional & Zakat Calculator (کیلکولیٹر)",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    text = "پروفیشنل کاروباری کیلکولیٹر (Business Calculator)",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Math calculations & 2.5% Zakat Nisab calculator with instant note insertion",
+                                    text = "بل، خریداری، منافع اور سائنسی ریاضیاتی حساب کتاب",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -241,6 +253,67 @@ fun HomeScreen(viewModel: OcrViewModel) {
                             Icons.Default.ArrowForward,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Separate Quick Access Card 2: Islamic Zakat Calculator (اسلامی زکوٰۃ و نصاب کیلکولیٹر)
+                Surface(
+                    onClick = {
+                        viewModel.setCalculatorSubTab(1)
+                        viewModel.setTab(3)
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF00C853).copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, Color(0xFF00C853).copy(alpha = 0.45f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("banner_zakat_calculator")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF00C853),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Diamond,
+                                        contentDescription = "Zakat Logo",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "اسلامی زکوٰۃ کیلکولیٹر (Zakat & Nisab)",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "سونا، چاندی، کیش، قرض منہا اور عالمی کرنسیوں میں 2.5% زکوٰۃ",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = Color(0xFF00C853),
                             modifier = Modifier.size(18.dp)
                         )
                     }

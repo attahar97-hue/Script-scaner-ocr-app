@@ -77,14 +77,18 @@ fun DocumentAngleCropDialog(
     var workingBitmap by remember { mutableStateOf(originalBitmap) }
     var canvasSize by remember { mutableStateOf(IntSize(1, 1)) }
 
-    // Normalized coordinates (0.0f to 1.0f) for 4 corners:
+    // Normalized coordinates (0.0f to 1.0f) for 4 corners detected automatically:
     // [0]=TL, [1]=TR, [2]=BR, [3]=BL
-    var cornerTL by remember { mutableStateOf(Offset(0.06f, 0.06f)) }
-    var cornerTR by remember { mutableStateOf(Offset(0.94f, 0.06f)) }
-    var cornerBR by remember { mutableStateOf(Offset(0.94f, 0.94f)) }
-    var cornerBL by remember { mutableStateOf(Offset(0.06f, 0.94f)) }
+    val initialCorners = remember(workingBitmap) {
+        ImageUtils.detectDocumentNormalizedCorners(workingBitmap)
+    }
 
-    var selectedMode by remember { mutableStateOf("A4") }
+    var cornerTL by remember(workingBitmap) { mutableStateOf(Offset(initialCorners[0], initialCorners[1])) }
+    var cornerTR by remember(workingBitmap) { mutableStateOf(Offset(initialCorners[2], initialCorners[3])) }
+    var cornerBR by remember(workingBitmap) { mutableStateOf(Offset(initialCorners[4], initialCorners[5])) }
+    var cornerBL by remember(workingBitmap) { mutableStateOf(Offset(initialCorners[6], initialCorners[7])) }
+
+    var selectedMode by remember { mutableStateOf("AUTO") }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -295,10 +299,11 @@ fun DocumentAngleCropDialog(
                         isSelected = selectedMode == "AUTO",
                         onClick = {
                             selectedMode = "AUTO"
-                            cornerTL = Offset(0.05f, 0.05f)
-                            cornerTR = Offset(0.95f, 0.05f)
-                            cornerBR = Offset(0.95f, 0.95f)
-                            cornerBL = Offset(0.05f, 0.95f)
+                            val detected = ImageUtils.detectDocumentNormalizedCorners(workingBitmap)
+                            cornerTL = Offset(detected[0], detected[1])
+                            cornerTR = Offset(detected[2], detected[3])
+                            cornerBR = Offset(detected[4], detected[5])
+                            cornerBL = Offset(detected[6], detected[7])
                         }
                     )
 

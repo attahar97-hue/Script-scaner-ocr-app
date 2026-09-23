@@ -59,9 +59,17 @@ class OcrViewModel(application: Application) : AndroidViewModel(application) {
         repository = ScanRepository(db.scanDao())
     }
 
-    // Navigation (0 = Home/OCR, 1 = Batch Scanner, 2 = PDF Studio, 3 = History, 4 = Settings)
+    // Navigation (0 = Home/OCR, 1 = Batch Scanner, 2 = PDF Studio, 3 = Calculator, 4 = History, 5 = Settings)
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+
+    // Calculator Sub-tab: 0 = Professional Calculator, 1 = Zakat Calculator
+    private val _selectedCalculatorSubTab = MutableStateFlow(0)
+    val selectedCalculatorSubTab: StateFlow<Int> = _selectedCalculatorSubTab.asStateFlow()
+
+    fun setCalculatorSubTab(subTab: Int) {
+        _selectedCalculatorSubTab.value = subTab
+    }
 
     // Active image & processing state
     private val _originalBitmap = MutableStateFlow<Bitmap?>(null)

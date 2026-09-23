@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -42,6 +44,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,12 +58,14 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,12 +85,45 @@ import kotlin.math.sqrt
 
 data class CalcHistoryItem(val expression: String, val result: String)
 
+data class ZakatCountryCurrency(
+    val code: String,
+    val name: String,
+    val flag: String,
+    val currencyName: String,
+    val symbol: String,
+    val defaultGoldPerGram: Double,
+    val defaultSilverPerGram: Double
+)
+
+val WORLDWIDE_ZAKAT_CURRENCIES = listOf(
+    ZakatCountryCurrency(code = "PK", name = "Pakistan (پاکستان)", flag = "🇵🇰", currencyName = "Pakistani Rupee", symbol = "PKR", defaultGoldPerGram = 24000.0, defaultSilverPerGram = 275.0),
+    ZakatCountryCurrency(code = "UK", name = "United Kingdom (برطانیہ)", flag = "🇬🇧", currencyName = "British Pound", symbol = "GBP (£)", defaultGoldPerGram = 65.5, defaultSilverPerGram = 0.78),
+    ZakatCountryCurrency(code = "US", name = "USA (امریکہ)", flag = "🇺🇸", currencyName = "US Dollar", symbol = "USD ($)", defaultGoldPerGram = 82.0, defaultSilverPerGram = 0.98),
+    ZakatCountryCurrency(code = "CA", name = "Canada (کینیڈا)", flag = "🇨🇦", currencyName = "Canadian Dollar", symbol = "CAD (C$)", defaultGoldPerGram = 112.0, defaultSilverPerGram = 1.34),
+    ZakatCountryCurrency(code = "DE", name = "Germany (جرمنی)", flag = "🇩🇪", currencyName = "Euro", symbol = "EUR (€)", defaultGoldPerGram = 77.0, defaultSilverPerGram = 0.92),
+    ZakatCountryCurrency(code = "AE", name = "UAE (دبئی / امارات)", flag = "🇦🇪", currencyName = "UAE Dirham", symbol = "AED (د.إ)", defaultGoldPerGram = 301.0, defaultSilverPerGram = 3.60),
+    ZakatCountryCurrency(code = "QA", name = "Qatar (قطر)", flag = "🇶🇦", currencyName = "Qatari Riyal", symbol = "QAR (ر.ق)", defaultGoldPerGram = 299.0, defaultSilverPerGram = 3.58),
+    ZakatCountryCurrency(code = "IR", name = "Iran (ایران)", flag = "🇮🇷", currencyName = "Iranian Toman / Rial", symbol = "IRR / Toman", defaultGoldPerGram = 4800000.0, defaultSilverPerGram = 58000.0),
+    ZakatCountryCurrency(code = "AF", name = "Afghanistan (افغانستان)", flag = "🇦🇫", currencyName = "Afghan Afghani", symbol = "AFN (؋)", defaultGoldPerGram = 5600.0, defaultSilverPerGram = 68.0),
+    ZakatCountryCurrency(code = "BD", name = "Bangladesh (بنگلہ دیش)", flag = "🇧🇩", currencyName = "Bangladeshi Taka", symbol = "BDT (৳)", defaultGoldPerGram = 9800.0, defaultSilverPerGram = 120.0),
+    ZakatCountryCurrency(code = "FR", name = "France (فرانس)", flag = "🇫🇷", currencyName = "Euro", symbol = "EUR (€)", defaultGoldPerGram = 77.0, defaultSilverPerGram = 0.92),
+    ZakatCountryCurrency(code = "SA", name = "Saudi Arabia (سعودی عرب)", flag = "🇸🇦", currencyName = "Saudi Riyal", symbol = "SAR (ر.س)", defaultGoldPerGram = 308.0, defaultSilverPerGram = 3.70),
+    ZakatCountryCurrency(code = "IN", name = "India (بھارت)", flag = "🇮🇳", currencyName = "Indian Rupee", symbol = "INR (₹)", defaultGoldPerGram = 6850.0, defaultSilverPerGram = 82.0),
+    ZakatCountryCurrency(code = "TR", name = "Turkey (ترکیہ)", flag = "🇹🇷", currencyName = "Turkish Lira", symbol = "TRY (₺)", defaultGoldPerGram = 2800.0, defaultSilverPerGram = 33.5),
+    ZakatCountryCurrency(code = "MY", name = "Malaysia (ملائیشیا)", flag = "🇲🇾", currencyName = "Malaysian Ringgit", symbol = "MYR (RM)", defaultGoldPerGram = 385.0, defaultSilverPerGram = 4.60),
+    ZakatCountryCurrency(code = "ID", name = "Indonesia (انڈونیشیا)", flag = "🇮🇩", currencyName = "Indonesian Rupiah", symbol = "IDR (Rp)", defaultGoldPerGram = 1280000.0, defaultSilverPerGram = 15300.0),
+    ZakatCountryCurrency(code = "OM", name = "Oman (عمان)", flag = "🇴🇲", currencyName = "Omani Rial", symbol = "OMR (ر.ع.)", defaultGoldPerGram = 31.6, defaultSilverPerGram = 0.38),
+    ZakatCountryCurrency(code = "KW", name = "Kuwait (کویت)", flag = "🇰🇼", currencyName = "Kuwaiti Dinar", symbol = "KWD (د.ك)", defaultGoldPerGram = 25.2, defaultSilverPerGram = 0.30),
+    ZakatCountryCurrency(code = "BH", name = "Bahrain (بحرین)", flag = "🇧🇭", currencyName = "Bahraini Dinar", symbol = "BHD (ب.د)", defaultGoldPerGram = 30.9, defaultSilverPerGram = 0.37),
+    ZakatCountryCurrency(code = "AU", name = "Australia (آسٹریلیا)", flag = "🇦🇺", currencyName = "Australian Dollar", symbol = "AUD (A$)", defaultGoldPerGram = 126.0, defaultSilverPerGram = 1.50)
+)
+
 @Composable
 fun CalculatorScreen(
     viewModel: OcrViewModel,
     modifier: Modifier = Modifier
 ) {
-    var selectedCalculatorTab by remember { mutableStateOf(0) } // 0 = Professional, 1 = Zakat
+    val selectedSubTab by viewModel.selectedCalculatorSubTab.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -92,29 +133,29 @@ fun CalculatorScreen(
     ) {
         // Top Switcher Tabs: Professional Calculator & Zakat Calculator
         TabRow(
-            selectedTabIndex = selectedCalculatorTab,
+            selectedTabIndex = selectedSubTab,
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             Tab(
-                selected = selectedCalculatorTab == 0,
-                onClick = { selectedCalculatorTab = 0 },
+                selected = selectedSubTab == 0,
+                onClick = { viewModel.setCalculatorSubTab(0) },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Professional Calc", fontWeight = FontWeight.Bold)
+                        Text("کاروباری کیلکولیٹر (Business Calc)", fontWeight = FontWeight.Bold)
                     }
                 },
                 modifier = Modifier.testTag("tab_professional_calc")
             )
 
             Tab(
-                selected = selectedCalculatorTab == 1,
-                onClick = { selectedCalculatorTab = 1 },
+                selected = selectedSubTab == 1,
+                onClick = { viewModel.setCalculatorSubTab(1) },
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Diamond, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Diamond, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color(0xFF00C853))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("زکوٰۃ کیلکولیٹر (Zakat)", fontWeight = FontWeight.Bold)
                     }
@@ -123,7 +164,7 @@ fun CalculatorScreen(
             )
         }
 
-        when (selectedCalculatorTab) {
+        when (selectedSubTab) {
             0 -> ProfessionalCalculatorView(viewModel = viewModel)
             1 -> ZakatCalculatorView(viewModel = viewModel)
         }
@@ -414,18 +455,27 @@ fun ProfessionalCalculatorView(viewModel: OcrViewModel) {
 fun ZakatCalculatorView(viewModel: OcrViewModel) {
     val context = LocalContext.current
 
-    // Currency selection
-    var currency by remember { mutableStateOf("PKR (Rs)") }
+    // Selected Country & Currency (Default Pakistan PKR, with presets for UK, USA, Canada, Germany, UAE, Qatar, Iran, Afghanistan, Bangladesh, France, etc.)
+    var selectedCountry by remember { mutableStateOf(WORLDWIDE_ZAKAT_CURRENCIES[0]) }
+    var showCountryMenu by remember { mutableStateOf(false) }
 
     // Gold Details
     var goldUnit by remember { mutableStateOf("Tola") } // "Tola" or "Grams"
     var goldQuantity by remember { mutableStateOf("") }
-    var goldRate by remember { mutableStateOf("280000") } // Market average per tola
+    var goldRate by remember { mutableStateOf((selectedCountry.defaultGoldPerGram * 11.66).toLong().toString()) }
 
     // Silver Details
     var silverUnit by remember { mutableStateOf("Tola") }
     var silverQuantity by remember { mutableStateOf("") }
-    var silverRate by remember { mutableStateOf("3200") } // Market average per tola
+    var silverRate by remember { mutableStateOf((selectedCountry.defaultSilverPerGram * 11.66).toLong().toString()) }
+
+    // Auto-update rates when user selects a different country
+    LaunchedEffect(selectedCountry, goldUnit, silverUnit) {
+        val gRate = if (goldUnit == "Grams") selectedCountry.defaultGoldPerGram else selectedCountry.defaultGoldPerGram * 11.66
+        val sRate = if (silverUnit == "Grams") selectedCountry.defaultSilverPerGram else selectedCountry.defaultSilverPerGram * 11.66
+        goldRate = if (gRate >= 100) gRate.toLong().toString() else String.format("%.2f", gRate)
+        silverRate = if (sRate >= 100) sRate.toLong().toString() else String.format("%.2f", sRate)
+    }
 
     // Cash & Assets
     var cashInHand by remember { mutableStateOf("") }
@@ -442,8 +492,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
         derivedStateOf {
             val q = goldQuantity.toDoubleOrNull() ?: 0.0
             val r = goldRate.toDoubleOrNull() ?: 0.0
-            val factor = if (goldUnit == "Grams") (1.0 / 11.66) else 1.0
-            q * r * factor
+            q * r
         }
     }
 
@@ -451,8 +500,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
         derivedStateOf {
             val q = silverQuantity.toDoubleOrNull() ?: 0.0
             val r = silverRate.toDoubleOrNull() ?: 0.0
-            val factor = if (silverUnit == "Grams") (1.0 / 11.66) else 1.0
-            q * r * factor
+            q * r
         }
     }
 
@@ -478,11 +526,11 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
         }
     }
 
-    // Silver Nisab (52.5 Tola Silver) is the standard common threshold in Islamic jurisprudence
+    // Silver Nisab (52.5 Tola or ~612.36 Grams of Silver)
     val silverNisabThreshold by remember {
         derivedStateOf {
-            val r = silverRate.toDoubleOrNull() ?: 3200.0
-            52.5 * r
+            val r = silverRate.toDoubleOrNull() ?: 0.0
+            if (silverUnit == "Grams") 612.36 * r else 52.5 * r
         }
     }
 
@@ -500,6 +548,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
     }
 
     val df = remember { DecimalFormat("#,##0.00") }
+    val currency = selectedCountry.symbol
 
     LazyColumn(
         modifier = Modifier
@@ -508,6 +557,124 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
             .testTag("zakat_calculator_column"),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Country & Global Currency Selector Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ملک اور کرنسی کا انتخاب (Country & Currency)",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Dropdown Trigger Box
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = { showCountryMenu = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("btn_select_country_currency")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(selectedCountry.flag, fontSize = 22.sp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = selectedCountry.name,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "${selectedCountry.currencyName} (${selectedCountry.symbol})",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showCountryMenu,
+                            onDismissRequest = { showCountryMenu = false },
+                            modifier = Modifier.fillMaxWidth(0.9f)
+                        ) {
+                            WORLDWIDE_ZAKAT_CURRENCIES.forEach { country ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(country.flag, fontSize = 20.sp)
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(country.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                Text("${country.currencyName} - ${country.symbol}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedCountry = country
+                                        showCountryMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Quick Popular Country Chips
+                    Text("فوری منتخب ممالک (Quick Select):", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            WORLDWIDE_ZAKAT_CURRENCIES[0], // PK
+                            WORLDWIDE_ZAKAT_CURRENCIES[1], // UK
+                            WORLDWIDE_ZAKAT_CURRENCIES[2], // US
+                            WORLDWIDE_ZAKAT_CURRENCIES[5]  // UAE
+                        ).forEach { quickCountry ->
+                            FilterChip(
+                                selected = selectedCountry.code == quickCountry.code,
+                                onClick = { selectedCountry = quickCountry },
+                                label = { Text("${quickCountry.flag} ${quickCountry.code}") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Hero Header Card
         item {
             Card(
@@ -525,7 +692,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                             Icon(Icons.Default.Diamond, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "اسلامی زکوٰۃ کیلکولیٹر",
+                                text = "اسلامی حسابِ زکوٰۃ (${selectedCountry.symbol})",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -537,7 +704,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                             color = if (isSahibENisab) Color(0xFF00C853) else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                text = if (isSahibENisab) "زکوٰۃ فرض ہے" else "نصاب سے کم",
+                                text = if (isSahibENisab) "زکوٰۃ واجب ہے (صاحبِ نصاب)" else "نصاب سے کم",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = if (isSahibENisab) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -547,7 +714,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "نصابِ چاندی: 52.5 تولہ (تقریباً ${df.format(silverNisabThreshold)} روپے) - اس سے زائد مالیت پر سالانہ 2.5% (چالیسواں حصہ) زکوٰۃ واجب ہوتی ہے۔",
+                        text = "نصابِ چاندی: 52.5 تولہ / 612 گرام (تقریباً ${df.format(silverNisabThreshold)} $currency) - اس سے زائد سال بھر بچت پر 2.5% (چالیسواں حصہ) زکوٰۃ واجب ہوتی ہے۔",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                     )
@@ -563,12 +730,31 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = goldUnit == "Tola",
+                        onClick = { goldUnit = "Tola" },
+                        label = { Text("تولہ (Tola)") }
+                    )
+                    FilterChip(
+                        selected = goldUnit == "Grams",
+                        onClick = { goldUnit = "Grams" },
+                        label = { Text("گرام (Grams)") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
                         value = goldQuantity,
                         onValueChange = { goldQuantity = it },
-                        label = { Text("سونے کا وزن ($goldUnit)") },
+                        label = { Text("وزن ($goldUnit)") },
                         placeholder = { Text("مثلاً 5") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -579,7 +765,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                     OutlinedTextField(
                         value = goldRate,
                         onValueChange = { goldRate = it },
-                        label = { Text("فی تولہ قیمت") },
+                        label = { Text("قیمت فی $goldUnit ($currency)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .weight(1f)
@@ -603,12 +789,31 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = silverUnit == "Tola",
+                        onClick = { silverUnit = "Tola" },
+                        label = { Text("تولہ (Tola)") }
+                    )
+                    FilterChip(
+                        selected = silverUnit == "Grams",
+                        onClick = { silverUnit = "Grams" },
+                        label = { Text("گرام (Grams)") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
                         value = silverQuantity,
                         onValueChange = { silverQuantity = it },
-                        label = { Text("چاندی کا وزن ($silverUnit)") },
+                        label = { Text("وزن ($silverUnit)") },
                         placeholder = { Text("مثلاً 50") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
@@ -619,7 +824,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                     OutlinedTextField(
                         value = silverRate,
                         onValueChange = { silverRate = it },
-                        label = { Text("فی تولہ ریٹ") },
+                        label = { Text("قیمت فی $silverUnit ($currency)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier
                             .weight(1f)
@@ -782,6 +987,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                             onClick = {
                                 val report = """
                                     --- اسلامی حسابِ زکوٰۃ رپورٹ (Zakat Report) ---
+                                    ملک و کرنسی: ${selectedCountry.name} (${selectedCountry.currencyName} - $currency)
                                     سونے کی مالیت: ${df.format(goldValue)} $currency
                                     چاندی کی مالیت: ${df.format(silverValue)} $currency
                                     نقد و بینک بیلنس: ${df.format(totalCashAndInvestments)} $currency

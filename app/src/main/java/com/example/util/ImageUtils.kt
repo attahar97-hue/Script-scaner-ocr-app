@@ -97,6 +97,58 @@ object ImageUtils {
     }
 
     /**
+     * Auto Document 4-Corner Edge & Boundary Detection
+     * Scans contrast changes from image borders inward to pinpoint document corners.
+     * Returns 4 normalized coordinates: [TL, TR, BR, BL]
+     */
+    fun detectDocumentNormalizedCorners(bitmap: Bitmap): FloatArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 10 || height <= 10) {
+            return floatArrayOf(0.06f, 0.06f, 0.94f, 0.06f, 0.94f, 0.94f, 0.06f, 0.94f)
+        }
+
+        val step = 12
+        var minX = width
+        var maxX = 0
+        var minY = height
+        var maxY = 0
+
+        for (y in 0 until height step step) {
+            for (x in 0 until width step step) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                val brightness = (r + g + b) / 3
+
+                // Contrast against background surface
+                if (brightness > 85) {
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+        }
+
+        val padX = ((maxX - minX) * 0.015f).toInt()
+        val padY = ((maxY - minY) * 0.015f).toInt()
+
+        val left = max(0, minX - padX).toFloat() / width
+        val top = max(0, minY - padY).toFloat() / height
+        val right = min(width, maxX + padX).toFloat() / width
+        val bottom = min(height, maxY + padY).toFloat() / height
+
+        // If detected box is reasonable, use it; otherwise use default document margins
+        return if ((right - left) > 0.35f && (bottom - top) > 0.35f) {
+            floatArrayOf(left, top, right, top, right, bottom, left, bottom)
+        } else {
+            floatArrayOf(0.06f, 0.06f, 0.94f, 0.06f, 0.94f, 0.94f, 0.06f, 0.94f)
+        }
+    }
+
+    /**
      * Auto Document Cropping & Edge Detection
      * Scans pixels from the edges inward to detect dark boundaries or messy shadows
      * and crops to the genuine paper note bounds.
