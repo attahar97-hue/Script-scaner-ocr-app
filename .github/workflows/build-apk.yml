@@ -47,27 +47,21 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Create temporary debug keystore
+      - name: Restore permanent release and debug keystores
         run: |
-          if [ -f "./debug.keystore" ]; then
-            echo "debug.keystore already exists."
-          else
-            echo "debug.keystore is missing. Generating a temporary debug keystore..."
-            keytool -genkey -v \
-              -keystore ./debug.keystore \
-              -alias androiddebugkey \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass android \
-              -keypass android \
-              -dname "CN=Android Debug,O=Android,C=US"
+          if [ -f "release.keystore.base64" ]; then
+            echo "Decoding permanent release.keystore from release.keystore.base64..."
+            base64 -d release.keystore.base64 > release.keystore
           fi
-          if [ ! -f "./debug.keystore" ]; then
-            echo "::error::Failed to create ./debug.keystore!"
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Decoding debug.keystore from debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f "./release.keystore" ]; then
+            echo "::error::release.keystore is missing!"
             exit 1
           fi
-          echo "Verified temporary debug keystore is present."
+          echo "Verified permanent release keystore is present."
 
       - name: Build Debug APK & Release AAB
         run: |
