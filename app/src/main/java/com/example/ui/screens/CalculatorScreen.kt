@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonetizationOn
-import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.RestartAlt
@@ -43,7 +43,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -293,7 +293,7 @@ fun ProfessionalCalculatorView(viewModel: OcrViewModel) {
                             },
                             modifier = Modifier.testTag("btn_calc_insert_ocr")
                         ) {
-                            Icon(Icons.Default.NoteAdd, contentDescription = "Insert into Document", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = "Insert into Document", tint = MaterialTheme.colorScheme.primary)
                         }
 
                         // Copy Result
@@ -949,7 +949,7 @@ fun ZakatCalculatorView(viewModel: OcrViewModel) {
                         Text("${df.format(silverNisabThreshold)} $currency", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
-                    Divider(modifier = Modifier.padding(vertical = 12.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

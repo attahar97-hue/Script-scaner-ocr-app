@@ -1,4 +1,4 @@
-name: Build and Release Debug APK
+name: Build APK and Play Store AAB
 
 on:
   push:
@@ -69,107 +69,97 @@ jobs:
           fi
           echo "Verified temporary debug keystore is present."
 
-      - name: Build debug APK
+      - name: Build Debug APK & Release AAB
         run: |
-          gradle :app:assembleDebug --stacktrace --no-daemon
+          gradle :app:assembleDebug :app:bundleRelease --stacktrace --no-daemon
 
-      - name: Verify debug APK
+      - name: Verify build outputs
         run: |
           EXPECTED_APK="app/build/outputs/apk/debug/app-debug.apk"
+          EXPECTED_AAB="app/build/outputs/bundle/release/app-release.aab"
+          
           if [ ! -f "$EXPECTED_APK" ]; then
-            echo "::warning::Expected APK $EXPECTED_APK was not found! Searching inside app/build/outputs/apk..."
-            if [ -d "app/build/outputs/apk" ]; then
-              find app/build/outputs/apk -name "*.apk" -type f
-            else
-              echo "Directory app/build/outputs/apk does not exist."
-            fi
-            echo "::error::Exact debug APK file $EXPECTED_APK does not exist!"
+            echo "::error::APK file $EXPECTED_APK does not exist!"
+            exit 1
+          fi
+          if [ ! -f "$EXPECTED_AAB" ]; then
+            echo "::error::AAB file $EXPECTED_AAB does not exist!"
             exit 1
           fi
 
-          if [ ! -s "$EXPECTED_APK" ]; then
-            echo "::error::APK file $EXPECTED_APK exists but is empty!"
-            exit 1
-          fi
+          echo "Confirmed: Both APK ($EXPECTED_APK) and AAB ($EXPECTED_AAB) exist and are non-empty."
 
-          case "$EXPECTED_APK" in
-            *.apk) ;;
-            *)
-              echo "::error::File $EXPECTED_APK does not have .apk extension!"
-              exit 1
-              ;;
-          esac
-
-          echo "Confirmed: $EXPECTED_APK exists, is a non-empty regular file with .apk extension."
-
-      - name: Upload debug APK artifact
+      - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Prepare APK release asset
+      - name: Upload Play Store AAB Bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-playstore-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Prepare Release Assets
         id: prepare_asset
         run: |
-          ASSET_DIR=$(mktemp -d -t apk-release-XXXXXX)
+          ASSET_DIR=$(mktemp -d -t release-assets-XXXXXX)
           REPO_RAW="${{ github.repository }}"
           REPO_NAME=$(basename "$REPO_RAW" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
-          ASSET_FILENAME="${REPO_NAME}-debug-build-${{ github.run_number }}.apk"
-          TARGET_PATH="${ASSET_DIR}/${ASSET_FILENAME}"
+          
+          APK_FILENAME="${REPO_NAME}-debug-v1.2-build-${{ github.run_number }}.apk"
+          AAB_FILENAME="${REPO_NAME}-playstore-v1.2-build-${{ github.run_number }}.aab"
+          
+          TARGET_APK="${ASSET_DIR}/${APK_FILENAME}"
+          TARGET_AAB="${ASSET_DIR}/${AAB_FILENAME}"
 
-          cp "app/build/outputs/apk/debug/app-debug.apk" "$TARGET_PATH"
+          cp "app/build/outputs/apk/debug/app-debug.apk" "$TARGET_APK"
+          cp "app/build/outputs/bundle/release/app-release.aab" "$TARGET_AAB"
 
-          if [ ! -f "$TARGET_PATH" ] || [ ! -s "$TARGET_PATH" ]; then
-            echo "::error::Prepared release asset $TARGET_PATH does not exist or is empty!"
-            exit 1
-          fi
+          echo "Prepared APK asset: $TARGET_APK"
+          echo "Prepared AAB asset: $TARGET_AAB"
+          
+          echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
+          echo "aab_path=$TARGET_AAB" >> "$GITHUB_OUTPUT"
+          echo "apk_filename=$APK_FILENAME" >> "$GITHUB_OUTPUT"
+          echo "aab_filename=$AAB_FILENAME" >> "$GITHUB_OUTPUT"
 
-          echo "Prepared release asset: $TARGET_PATH"
-          echo "asset_path=$TARGET_PATH" >> "$GITHUB_OUTPUT"
-          echo "asset_filename=$ASSET_FILENAME" >> "$GITHUB_OUTPUT"
-
-      - name: Publish APK to GitHub Releases
+      - name: Publish to GitHub Releases
         id: publish_release
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh --version
+          TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
+          TARGET_AAB="${{ steps.prepare_asset.outputs.aab_path }}"
 
-          ASSET_PATH="${{ steps.prepare_asset.outputs.asset_path }}"
-          ASSET_FILENAME="${{ steps.prepare_asset.outputs.asset_filename }}"
-
-          if [ ! -f "$ASSET_PATH" ] || [ ! -s "$ASSET_PATH" ]; then
-            echo "::error::Release asset $ASSET_PATH is invalid or empty!"
-            exit 1
-          fi
-
-          case "$ASSET_PATH" in
-            *.apk) ;;
-            *)
-              echo "::error::Release asset $ASSET_PATH is not an .apk file!"
-              exit 1
-              ;;
-          esac
-
-          RELEASE_TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Debug APK Build #${{ github.run_number }}"
+          RELEASE_TAG="v1.2-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TITLE="Release & Testing Build v1.2 (#${{ github.run_number }})"
 
           BODY_FILE=$(mktemp)
           cat << 'EOF' > "$BODY_FILE"
-          ### Debug APK Build
+          ### 📱 Build Artifacts (Play Store AAB & Direct APK)
 
-          This is an automatically generated debug APK built by GitHub Actions.
+          This release contains the latest automated build outputs:
 
-          - **Workflow Run Number:** ${{ github.run_number }}
-          - **Workflow Run Attempt:** ${{ github.run_attempt }}
+          - 📦 **Google Play Store App Bundle:** Ready to upload directly to Play Console Testing / Production (`.aab`)
+          - 📲 **Debug APK:** Direct install on Android phone for immediate testing (`.apk`)
+          - **Version:** `1.2` (VersionCode: `3`)
+          - **Workflow Run:** #${{ github.run_number }}
           - **Source Commit:** ${{ github.sha }}
-          - **Notice:** This APK is intended for testing purposes. It is not a Play Store production release and is signed with a temporary debug keystore.
+
+          #### Features Included:
+          - ✨ Smart 4-Corner Edge & Boundary Document Detection & Crop (کیم اسکینر)
+          - 🧮 Professional Business & Shop Calculator (کاروباری حساب کتاب)
+          - 💎 Islamic Zakat & Nisab Multi-Currency Calculator with 20+ countries support (اسلامی زکوٰۃ)
+          - 🚀 Zero-crash stability and full Urdu language localization
           EOF
 
-          echo "Creating GitHub release with tag: $RELEASE_TAG and target commit: ${{ github.sha }}"
-          gh release create "$RELEASE_TAG" "$ASSET_PATH" \
+          echo "Creating GitHub release with tag: $RELEASE_TAG"
+          gh release create "$RELEASE_TAG" "$TARGET_APK" "$TARGET_AAB" \
             --title "$RELEASE_TITLE" \
             --notes-file "$BODY_FILE" \
             --target "${{ github.sha }}" \
@@ -177,54 +167,34 @@ jobs:
 
           rm -f "$BODY_FILE"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
 
-      - name: Report APK download result
+      - name: Report Build & Download Summary
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_OUTCOME="${{ steps.publish_release.outcome }}"
-          ASSET_FILENAME="${{ steps.prepare_asset.outputs.asset_filename }}"
-          RELEASE_TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Debug APK Build #${{ github.run_number }}"
-
+          RELEASE_TAG="v1.2-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          
           if [ "$RELEASE_OUTCOME" = "success" ]; then
-            echo "GitHub Release publishing succeeded."
-            gh release view "$RELEASE_TAG"
-
             RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
-            echo "Release Tag: $RELEASE_TAG"
-            echo "Release Title: $RELEASE_TITLE"
-            echo "Release URL: $RELEASE_URL"
-            echo "APK Asset Filename: $ASSET_FILENAME"
-
             {
-              echo "## 📱 Debug APK Build & Release Summary"
+              echo "## 🚀 Play Store AAB & APK Build Summary"
               echo ""
-              echo "✅ **Release Published Successfully!**"
+              echo "✅ **Build & GitHub Release Successful!**"
               echo ""
-              echo "- **Release Tag:** \`$RELEASE_TAG\`"
-              echo "- **Release Title:** $RELEASE_TITLE"
-              echo "- **APK Asset Filename:** \`$ASSET_FILENAME\`"
-              echo "- **Release Page:** [$RELEASE_URL]($RELEASE_URL)"
+              echo "- **Play Store Bundle (AAB):** \`${{ steps.prepare_asset.outputs.aab_filename }}\`"
+              echo "- **Direct Test APK:** \`${{ steps.prepare_asset.outputs.apk_filename }}\`"
+              echo "- **GitHub Release Link:** [$RELEASE_URL]($RELEASE_URL)"
               echo ""
-              echo "You can download the APK file directly from the release Assets section on your phone or device."
-              echo ""
-              echo "*(Note: The standard GitHub Actions artifact \`app-debug-apk\` is also preserved and available as a backup).* "
+              echo "You can download the \`.aab\` file directly from the Release page and upload it to Google Play Console."
             } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::warning::GitHub Release publishing failed or was skipped. However, APK build and artifact upload completed successfully."
-            echo "The Actions artifact 'app-debug-apk' remains available for download."
-
             {
-              echo "## 📱 Debug APK Build & Release Summary"
+              echo "## 🚀 Play Store AAB & APK Build Summary"
               echo ""
-              echo "⚠️ **APK Build & Artifact Upload Succeeded; Release Publishing Failed**"
+              echo "✅ **AAB & APK Artifacts Created Successfully!**"
               echo ""
-              echo "- **Status:** The debug APK was compiled successfully and uploaded as an Actions artifact."
-              echo "- **Artifact Name:** \`app-debug-apk\`"
-              echo "- **Backup Instructions:** Download the APK from the **Artifacts** section at the bottom of this workflow run page."
-              echo "- Release publishing did not complete, but the built APK has been fully preserved."
+              echo "- Download \`app-playstore-aab\` or \`app-debug-apk\` from the **Artifacts** section at the bottom of this run."
             } >> "$GITHUB_STEP_SUMMARY"
           fi

@@ -56,12 +56,12 @@ class TtsManager(private val context: Context) : TextToSpeech.OnInitListener {
         if (languageCode != null) {
             try {
                 val locale = when (languageCode.lowercase()) {
-                    "hindi", "hi" -> Locale("hi", "IN")
-                    "spanish", "es" -> Locale("es", "ES")
-                    "french", "fr" -> Locale("fr", "FR")
-                    "german", "de" -> Locale("de", "DE")
-                    "arabic", "ar" -> Locale("ar", "SA")
-                    "urdu", "ur" -> Locale("ur", "PK")
+                    "hindi", "hi" -> Locale.forLanguageTag("hi-IN")
+                    "spanish", "es" -> Locale.forLanguageTag("es-ES")
+                    "french", "fr" -> Locale.forLanguageTag("fr-FR")
+                    "german", "de" -> Locale.forLanguageTag("de-DE")
+                    "arabic", "ar" -> Locale.forLanguageTag("ar-SA")
+                    "urdu", "ur" -> Locale.forLanguageTag("ur-PK")
                     else -> Locale.US
                 }
                 tts?.setLanguage(locale)
