@@ -16,11 +16,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Temurin Java 17
+      - name: Set up Temurin Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Verify Java environment
         run: |
@@ -36,8 +36,8 @@ jobs:
             echo "::error::Could not detect Java major version!"
             exit 1
           fi
-          if [ "$JAVA_MAJOR" -lt 17 ]; then
-            echo "::error::Active Java major version is $JAVA_MAJOR, which is lower than 17!"
+          if [ "$JAVA_MAJOR" -lt 21 ]; then
+            echo "::error::Active Java major version is $JAVA_MAJOR, which is lower than 21!"
             exit 1
           fi
           echo "Java environment verified successfully: Java $JAVA_MAJOR"
@@ -62,10 +62,11 @@ jobs:
             exit 1
           fi
           echo "Verified permanent release keystore is present."
+          keytool -list -v -keystore release.keystore -storepass android | grep -E "SHA1|SHA256" || true
 
-      - name: Build Debug APK & Release AAB
+      - name: Build Play Store AAB & Debug APK
         run: |
-          gradle :app:assembleDebug :app:bundleRelease --stacktrace --no-daemon
+          gradle :app:bundleRelease :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify build outputs
         run: |
@@ -82,19 +83,21 @@ jobs:
           fi
 
           echo "Confirmed: Both APK ($EXPECTED_APK) and AAB ($EXPECTED_AAB) exist and are non-empty."
-
-      - name: Upload Debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          echo "=== AAB Signature Certificate Fingerprints ==="
+          keytool -printcert -jarfile "$EXPECTED_AAB" | grep -E "SHA1|SHA256" || true
 
       - name: Upload Play Store AAB Bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-playstore-aab
           path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Upload Debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Prepare Release Assets
@@ -104,8 +107,8 @@ jobs:
           REPO_RAW="${{ github.repository }}"
           REPO_NAME=$(basename "$REPO_RAW" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
           
-          APK_FILENAME="${REPO_NAME}-debug-v1.2-build-${{ github.run_number }}.apk"
-          AAB_FILENAME="${REPO_NAME}-playstore-v1.2-build-${{ github.run_number }}.aab"
+          APK_FILENAME="${REPO_NAME}-debug-v1.3-build-${{ github.run_number }}.apk"
+          AAB_FILENAME="${REPO_NAME}-playstore-v1.3-build-${{ github.run_number }}.aab"
           
           TARGET_APK="${ASSET_DIR}/${APK_FILENAME}"
           TARGET_AAB="${ASSET_DIR}/${AAB_FILENAME}"
@@ -130,8 +133,8 @@ jobs:
           TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
           TARGET_AAB="${{ steps.prepare_asset.outputs.aab_path }}"
 
-          RELEASE_TAG="v1.2-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Release & Testing Build v1.2 (#${{ github.run_number }})"
+          RELEASE_TAG="v1.3-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TITLE="Release & Testing Build v1.3 (#${{ github.run_number }})"
 
           BODY_FILE=$(mktemp)
           cat << 'EOF' > "$BODY_FILE"
@@ -141,7 +144,7 @@ jobs:
 
           - 📦 **Google Play Store App Bundle:** Ready to upload directly to Play Console Testing / Production (`.aab`)
           - 📲 **Debug APK:** Direct install on Android phone for immediate testing (`.apk`)
-          - **Version:** `1.2` (VersionCode: `3`)
+          - **Version:** `1.3` (VersionCode: `4`)
           - **Workflow Run:** #${{ github.run_number }}
           - **Source Commit:** ${{ github.sha }}
 
@@ -168,7 +171,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_OUTCOME="${{ steps.publish_release.outcome }}"
-          RELEASE_TAG="v1.2-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TAG="v1.3-build-${{ github.run_number }}-${{ github.run_attempt }}"
           
           if [ "$RELEASE_OUTCOME" = "success" ]; then
             RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
