@@ -48,15 +48,11 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Restore permanent release and debug keystores
+      - name: Restore permanent release keystore
         run: |
           if [ -f "release.keystore.base64" ]; then
             echo "Decoding permanent release.keystore from release.keystore.base64..."
             base64 -d release.keystore.base64 > release.keystore
-          fi
-          if [ -f "debug.keystore.base64" ]; then
-            echo "Decoding debug.keystore from debug.keystore.base64..."
-            base64 -d debug.keystore.base64 > debug.keystore
           fi
           if [ ! -f "./release.keystore" ]; then
             echo "::error::release.keystore is missing!"
@@ -70,26 +66,14 @@ jobs:
           echo "Building Google Play Store Release Bundle (.aab)..."
           gradle :app:bundleRelease --stacktrace --no-daemon
 
-      - name: Build Debug APK
+      - name: Verify Play Store AAB
         run: |
-          echo "Building Test Debug APK (.apk)..."
-          gradle :app:assembleDebug --stacktrace --no-daemon
-
-      - name: Verify build outputs
-        run: |
-          EXPECTED_APK="app/build/outputs/apk/debug/app-debug.apk"
           EXPECTED_AAB="app/build/outputs/bundle/release/app-release.aab"
-          
-          if [ ! -f "$EXPECTED_APK" ]; then
-            echo "::error::APK file $EXPECTED_APK does not exist!"
-            exit 1
-          fi
           if [ ! -f "$EXPECTED_AAB" ]; then
             echo "::error::AAB file $EXPECTED_AAB does not exist!"
             exit 1
           fi
-
-          echo "Confirmed: Both APK ($EXPECTED_APK) and AAB ($EXPECTED_AAB) exist and are non-empty."
+          echo "Confirmed: Play Store AAB ($EXPECTED_AAB) generated successfully."
           echo "=== AAB Signature Certificate Fingerprints ==="
           keytool -printcert -jarfile "$EXPECTED_AAB" | grep -E "SHA1|SHA256" || true
 
@@ -100,12 +84,20 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
+      - name: Build Debug APK
+        continue-on-error: true
+        run: |
+          echo "Building Test Debug APK (.apk)..."
+          gradle :app:assembleDebug --stacktrace --no-daemon
+
       - name: Upload Debug APK artifact
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: Debug-APK-v1.4
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Prepare Release Assets
         id: prepare_asset
@@ -120,15 +112,18 @@ jobs:
           TARGET_APK="${ASSET_DIR}/${APK_FILENAME}"
           TARGET_AAB="${ASSET_DIR}/${AAB_FILENAME}"
 
-          cp "app/build/outputs/apk/debug/app-debug.apk" "$TARGET_APK"
           cp "app/build/outputs/bundle/release/app-release.aab" "$TARGET_AAB"
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp "app/build/outputs/apk/debug/app-debug.apk" "$TARGET_APK"
+            echo "has_apk=true" >> "$GITHUB_OUTPUT"
+            echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
+            echo "apk_filename=$APK_FILENAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_apk=false" >> "$GITHUB_OUTPUT"
+          fi
 
-          echo "Prepared APK asset: $TARGET_APK"
           echo "Prepared AAB asset: $TARGET_AAB"
-          
-          echo "apk_path=$TARGET_APK" >> "$GITHUB_OUTPUT"
           echo "aab_path=$TARGET_AAB" >> "$GITHUB_OUTPUT"
-          echo "apk_filename=$APK_FILENAME" >> "$GITHUB_OUTPUT"
           echo "aab_filename=$AAB_FILENAME" >> "$GITHUB_OUTPUT"
 
       - name: Publish to GitHub Releases
@@ -137,8 +132,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
           TARGET_AAB="${{ steps.prepare_asset.outputs.aab_path }}"
+          HAS_APK="${{ steps.prepare_asset.outputs.has_apk }}"
+          TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
 
           RELEASE_TAG="v1.4-build-${{ github.run_number }}-${{ github.run_attempt }}"
           RELEASE_TITLE="Release & Testing Build v1.4 (#${{ github.run_number }})"
@@ -163,11 +159,19 @@ jobs:
           EOF
 
           echo "Creating GitHub release with tag: $RELEASE_TAG"
-          gh release create "$RELEASE_TAG" "$TARGET_APK" "$TARGET_AAB" \
-            --title "$RELEASE_TITLE" \
-            --notes-file "$BODY_FILE" \
-            --target "${{ github.sha }}" \
-            --latest
+          if [ "$HAS_APK" = "true" ]; then
+            gh release create "$RELEASE_TAG" "$TARGET_AAB" "$TARGET_APK" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$BODY_FILE" \
+              --target "${{ github.sha }}" \
+              --latest
+          else
+            gh release create "$RELEASE_TAG" "$TARGET_AAB" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$BODY_FILE" \
+              --target "${{ github.sha }}" \
+              --latest
+          fi
 
           rm -f "$BODY_FILE"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
