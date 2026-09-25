@@ -80,7 +80,7 @@ jobs:
       - name: Upload Play Store AAB Bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PlayStore-AAB-v1.4
+          name: PlayStore-AAB-v1.5
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -95,7 +95,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: Debug-APK-v1.4
+          name: Debug-APK-v1.5
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
 
@@ -106,8 +106,8 @@ jobs:
           REPO_RAW="${{ github.repository }}"
           REPO_NAME=$(basename "$REPO_RAW" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
           
-          APK_FILENAME="${REPO_NAME}-debug-v1.4-build-${{ github.run_number }}.apk"
-          AAB_FILENAME="${REPO_NAME}-playstore-v1.4-build-${{ github.run_number }}.aab"
+          APK_FILENAME="${REPO_NAME}-debug-v1.5-build-${{ github.run_number }}.apk"
+          AAB_FILENAME="${REPO_NAME}-playstore-v1.5-build-${{ github.run_number }}.aab"
           
           TARGET_APK="${ASSET_DIR}/${APK_FILENAME}"
           TARGET_AAB="${ASSET_DIR}/${AAB_FILENAME}"
@@ -136,8 +136,8 @@ jobs:
           HAS_APK="${{ steps.prepare_asset.outputs.has_apk }}"
           TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
 
-          RELEASE_TAG="v1.4-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Release & Testing Build v1.4 (#${{ github.run_number }})"
+          RELEASE_TAG="v1.5-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TITLE="Release & Testing Build v1.5 (#${{ github.run_number }})"
 
           BODY_FILE=$(mktemp)
           cat << 'EOF' > "$BODY_FILE"
@@ -147,11 +147,13 @@ jobs:
 
           - 📦 **Google Play Store App Bundle:** Ready to upload directly to Play Console Testing / Production (`.aab`)
           - 📲 **Debug APK:** Direct install on Android phone for immediate testing (`.apk`)
-          - **Version:** `1.4` (VersionCode: `5`)
+          - **Version:** `1.5` (VersionCode: `6`)
           - **Workflow Run:** #${{ github.run_number }}
           - **Source Commit:** ${{ github.sha }}
 
           #### Features Included:
+          - ✨ Full Android 15 & Android 14 Backwards Compatibility (removeAt safe replacement)
+          - 🎨 Official Material 3 Edge-to-Edge with Safe Drawing Insets
           - ✨ Smart 4-Corner Edge & Boundary Document Detection & Crop (کیم اسکینر)
           - 🧮 Professional Business & Shop Calculator (کاروباری حساب کتاب)
           - 💎 Islamic Zakat & Nisab Multi-Currency Calculator with 20+ countries support (اسلامی زکوٰۃ)

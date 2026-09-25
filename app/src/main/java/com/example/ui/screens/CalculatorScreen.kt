@@ -188,7 +188,9 @@ fun ProfessionalCalculatorView(viewModel: OcrViewModel) {
         val calculated = evaluateMathExpression(expression)
         resultText = calculated
         historyList.add(0, CalcHistoryItem(expression, calculated))
-        if (historyList.size > 25) historyList.removeLast()
+        if (historyList.size > 25) {
+            historyList.removeAt(historyList.lastIndex)
+        }
     }
 
     fun handleKey(key: String) {
