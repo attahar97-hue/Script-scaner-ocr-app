@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
 
 permissions:
@@ -64,9 +65,15 @@ jobs:
           echo "Verified permanent release keystore is present."
           keytool -list -v -keystore release.keystore -storepass android | grep -E "SHA1|SHA256" || true
 
-      - name: Build Play Store AAB & Debug APK
+      - name: Build Play Store AAB
         run: |
-          gradle :app:bundleRelease :app:assembleDebug --stacktrace --no-daemon
+          echo "Building Google Play Store Release Bundle (.aab)..."
+          gradle :app:bundleRelease --stacktrace --no-daemon
+
+      - name: Build Debug APK
+        run: |
+          echo "Building Test Debug APK (.apk)..."
+          gradle :app:assembleDebug --stacktrace --no-daemon
 
       - name: Verify build outputs
         run: |
@@ -89,14 +96,14 @@ jobs:
       - name: Upload Play Store AAB Bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-playstore-aab
+          name: PlayStore-AAB-v1.4
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: Debug-APK-v1.4
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -107,8 +114,8 @@ jobs:
           REPO_RAW="${{ github.repository }}"
           REPO_NAME=$(basename "$REPO_RAW" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g')
           
-          APK_FILENAME="${REPO_NAME}-debug-v1.3-build-${{ github.run_number }}.apk"
-          AAB_FILENAME="${REPO_NAME}-playstore-v1.3-build-${{ github.run_number }}.aab"
+          APK_FILENAME="${REPO_NAME}-debug-v1.4-build-${{ github.run_number }}.apk"
+          AAB_FILENAME="${REPO_NAME}-playstore-v1.4-build-${{ github.run_number }}.aab"
           
           TARGET_APK="${ASSET_DIR}/${APK_FILENAME}"
           TARGET_AAB="${ASSET_DIR}/${AAB_FILENAME}"
@@ -133,8 +140,8 @@ jobs:
           TARGET_APK="${{ steps.prepare_asset.outputs.apk_path }}"
           TARGET_AAB="${{ steps.prepare_asset.outputs.aab_path }}"
 
-          RELEASE_TAG="v1.3-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          RELEASE_TITLE="Release & Testing Build v1.3 (#${{ github.run_number }})"
+          RELEASE_TAG="v1.4-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TITLE="Release & Testing Build v1.4 (#${{ github.run_number }})"
 
           BODY_FILE=$(mktemp)
           cat << 'EOF' > "$BODY_FILE"
@@ -144,7 +151,7 @@ jobs:
 
           - 📦 **Google Play Store App Bundle:** Ready to upload directly to Play Console Testing / Production (`.aab`)
           - 📲 **Debug APK:** Direct install on Android phone for immediate testing (`.apk`)
-          - **Version:** `1.3` (VersionCode: `4`)
+          - **Version:** `1.4` (VersionCode: `5`)
           - **Workflow Run:** #${{ github.run_number }}
           - **Source Commit:** ${{ github.sha }}
 
@@ -171,7 +178,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_OUTCOME="${{ steps.publish_release.outcome }}"
-          RELEASE_TAG="v1.3-build-${{ github.run_number }}-${{ github.run_attempt }}"
+          RELEASE_TAG="v1.4-build-${{ github.run_number }}-${{ github.run_attempt }}"
           
           if [ "$RELEASE_OUTCOME" = "success" ]; then
             RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
@@ -192,6 +199,6 @@ jobs:
               echo ""
               echo "✅ **AAB & APK Artifacts Created Successfully!**"
               echo ""
-              echo "- Download \`app-playstore-aab\` or \`app-debug-apk\` from the **Artifacts** section at the bottom of this run."
+              echo "- Download \`PlayStore-AAB-v1.4\` or \`Debug-APK-v1.4\` from the **Artifacts** section at the bottom of this run."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
